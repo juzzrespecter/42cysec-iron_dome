@@ -4,7 +4,7 @@ SRC_DIR = src/
 OBJ_DIR = obj/
 INC_DIR = inc/
 
-SRC = main.c
+SRC = main.c entropy.c utils.c
 OBJ = $(patsubst %.c, $(OBJ_DIR)%.o, $(SRC))
 INC = irondome.h
 
@@ -16,7 +16,7 @@ CXXFLAGS = -Wall -Werror -Wextra
 all: $(NAME)
 
 $(NAME): $(OBJ)
-	@$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ)
+	@$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ) -lm
 
 $(OBJ_DIR)%.o: $(SRC_DIR)%.c
 	@mkdir -p $(@D)

@@ -6,8 +6,10 @@ static void usage(void)
     exit(EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
     if (argc < 2)
-	usage();
+		usage();
+	//parse for file extensions
+	printf("Entropy: %f\n", entropy(argv[1]));
 }
