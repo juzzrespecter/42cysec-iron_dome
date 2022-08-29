@@ -1,5 +1,22 @@
 #include "irondome.h"
 
+static const int nfds = 2;
+static const int timeout = -1;
+
+static int is_dir(char* filename)
+{
+    struct stat f_info;
+
+    memset(&f_info, 0, sizeof(f_info));
+    if (stat(filename, &f_info) == -1)
+    {
+        fprintf(stderr, "stat: %s\n", strerror(errno));
+        errno = 0;
+        return 0;
+    }
+    return S_ISDIR(f_info.st_mode);
+}
+
 static void set_pathname(char* pathbuf, char* pathname, char* dirname)
 {
     memset(pathbuf, 0, PATH_MAX);
@@ -8,7 +25,46 @@ static void set_pathname(char* pathbuf, char* pathname, char* dirname)
     strncat(pathbuf, dirname, strlen(dirname) + 1);
 }
 
-void event_loop(int fd, int wd)
+static int event_create_dir(int fd, inotify_event* evn, event_node_t** alst)
+{
+    event_node_t* n = *alst;
+    char*         path = NULL;
+    char          pathbuf[PATH_MAX] = {0};
+    
+    /* loop through list until event wd matches */
+    while (n)
+    {
+	if (evn->wd == n->wd)
+	{
+	    path = n->pathname;
+	    break ;
+	}
+	n = n->n;
+    }
+    if (!n)
+	return 1;
+    set_pathname(pathbuf, n->pathname, env->name); 
+    add_event(fd, pathbuf, alst);
+    return 0;
+}
+
+static int event_rm_dir(int fd, inotify_event* evn, event_node_t** alst)
+{
+    event_node_t* n = *alst;
+    
+    while (n)
+    {
+	if (evn->wd == n->wd)
+	    break ;
+	n = n->n;
+    }
+    if (!n)
+	return 1;
+    rm_event(fd, n, alst);
+    return 0;
+}
+
+void event_loop(int fd, int wd, event_node_t *lst)
 {
     int i = 0, l;
     char evn_buf[EVN_BUF_LEN] = {0};
@@ -32,16 +88,18 @@ void event_loop(int fd, int wd)
                 {
                     /* check if new file is a directory, if true then add new watch */
                     printf("[placeholder] new directory created\n");
-                    add_event(fd, get_event_pathname(event->name));
+		    event_create_dir(/*...*/);
                 } 
                 else if (event->mask & IN_DELETE | IN_ISDIR)
                 {
                     printf("[placeholder] directory removed\n");
+		    event_rm_dir(/*...*/)
                 }
                 else if (event->mask & IN_DELETE_SELF)
                 {
                     printf("[placeholder] monitored directory was deleted\n");
-                    /* remove watch fd from list */
+                    /* clean exit and return */
+		    return ;
                 } 
                 else if (event->mask & IN_ACCESS  || event->mask & IN_OPEN)
                 {
@@ -51,32 +109,22 @@ void event_loop(int fd, int wd)
                 }
                 printf("got event in %s\n", event->name);
             }
-        /* if caught new directory event */
-        /* if caught removed directory event */
     }
 }
 
-/*
-    inotify_event
-        int wd;
-        uint32_t mask;
-        uint32_t cookie;
-        uint32_t len;
-        char name;
-*/
-
-event_node_t* recursive_dir_access(char *pathname, event_node_t *alst)
+static event_node_t* recursive_dir_access(int fd, char *pathname, event_node_t *alst)
 {
     DIR*           root_st;
     struct dirent* dir_st; /* statically allocated, do not free ! */
     char           pathbuf[PATH_MAX + 1];
     static int     dir_n = 0; /* testing ... */
 
+    dir_n++;
     root_st = opendir(pathname);
     if (!root_st)
     {
-        fprintf(stderr, "opendir: %s\n", strerror(errno));
-        return 1;
+        perror("opendir");
+        return NULL;
     }
     errno = 0;
     for (dir_st = readdir(root_st); dir_st != NULL; dir_st = readdir(root_st))
@@ -86,21 +134,23 @@ event_node_t* recursive_dir_access(char *pathname, event_node_t *alst)
         set_pathname(pathbuf, pathname, dir_st->d_name);            
         if (!is_dir(pathbuf))
             continue ;
-        printf("found directory: %s\n", pathbuf);
+        printf("[debug] found directory: %s\n", pathbuf);
+	if (!add_event(fd, pathbuf, alst))
+	    return NULL;
         recursive_dir_access(pathbuf);
     }
     if (errno != 0)
     {
-        fprintf(stderr, "readdir: %s\n", strerror(errno));
+	perror("readdir");
         closedir(root_st);
-        return 1;
+        return NULL;
     }
-    return 0;
+    return alst;
 }
 
 int monitor(char* root)
 {
-    int fd;
+    int fd, nevents;
     event_node_t* event_lst = NULL;
 
     fd = inotify_init1(O_NONBLOCK);
@@ -110,9 +160,18 @@ int monitor(char* root)
         return 1;
     }
     event_lst = recursive_dir_access(root, &event_lst); /* capture snapshot of current dir. structure, return array of events */
-    /* poll */
+    if (!event_lst)
+	return 1;
     while (1)
     {
+	nevents = poll(fds, nfds, timeout);
+	if (nevents == -1 && errno != EINTR)
+	    continue;
+	if (nevents == -1)
+	{
+	    perror("poll");
+	    return 1;
+	}
 
     }
 }

@@ -14,8 +14,9 @@
 # define EVN_BUF_LEN 2000
 
 typedef struct event_node {
-    int wd;
-    struct event_node *n;
+    int   wd;
+    char* pathname;
+    struct event_node* n;
 } event_node_t;
 
 void event_loop(int wd); /* tmp */
