@@ -7,9 +7,13 @@
 #include <math.h>
 #include <dirent.h>
 #include <string.h>
+#include <sys/types.h>
+#include <pthread.h>
 
 double	entropy(char *path);
 char	*ft_strjoin(char const *s1, char const *s2);
+int		ends_with(char *str, char e);
+char	**arrdup(int len, char **arr);
 
 /*
 //  * File types

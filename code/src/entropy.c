@@ -1,26 +1,31 @@
 #include "../inc/irondome.h"
 
-//error hadling could be better with some pritns or using perror
+//error hadling could be better with some prints or using perror
 
 void entropy_file(char* path, int arr[256])
 {
+	printf("%s", path);
+	fflush(NULL);
 	int fd = open(path, O_RDONLY);
 	if (fd < 0)
 		return ;
-	int amount = 10;
 	unsigned char *save = malloc(1001);
+	int amount = read(fd, save, 1000);
 
 	while (amount > 0) {
-		amount = read(fd, save, 1000);
 		for (int i = 0; i < amount; i++)
 			arr[save[i]] += 1;
+		amount = read(fd, save, 1000);
 	}
 	free(save);
 	close(fd);
+	printf("   done\n");
+	fflush(NULL);
 }
 
 void entropy_dir(char* dir_path, int arr[256])
 {
+	printf("%s\n", dir_path);
 	DIR* dir = opendir(dir_path);
 	
 	if (!dir)
@@ -29,27 +34,31 @@ void entropy_dir(char* dir_path, int arr[256])
 	struct dirent *elem = readdir(dir);
 	char *join1, *join2;
 
-	while (elem != NULL) {
-		//printf("%s\n", elem->d_name);
-		//fflush(NULL);
-		if (elem->d_type == 4 && strcmp(elem->d_name, ".") && strcmp(elem->d_name, ".."))
+	while (elem != NULL) 
+	{
+		if ((elem->d_type == DT_DIR || elem->d_type == DT_REG) && strcmp(elem->d_name, "pagemap"))
 		{
-			join1 = ft_strjoin(dir_path, "/");
+			if (!ends_with(dir_path, '/'))
+				join1 = ft_strjoin(dir_path, "/");
+			else 
+				join1 = strdup(dir_path);
 			join2 = ft_strjoin(join1, elem->d_name);
-			entropy_dir(join2, arr);
+			if (elem->d_type == DT_DIR && strcmp(elem->d_name, ".") && strcmp(elem->d_name, "..") && strcmp(join2, "/dev") && strcmp(join2, "/proc"))
+			{
+				entropy_dir(join2, arr);
+			}
+			if (elem->d_type == DT_REG)
+			{
+				entropy_file(join2, arr);
+				free(join2);
+			}
 			free(join1);
-		}
-		if (elem->d_type == 8)
-		{
-			join1 = ft_strjoin(dir_path, "/");
-			join2 = ft_strjoin(join1, elem->d_name);
-			entropy_file(join2, arr);
-			free(join1);
-			free(join2);
 		}
 		elem = readdir(dir);
 	}
 	closedir(dir);
+	printf("%s   done\n", dir_path);
+	fflush(NULL);
 	free(dir_path);
 }
 
@@ -77,5 +86,3 @@ double entropy(char *path)
 	}
 	return sum;
 }
-
-

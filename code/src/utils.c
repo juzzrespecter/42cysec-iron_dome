@@ -17,3 +17,27 @@ char	*ft_strjoin(char const *s1, char const *s2)
 		*(ret++) = *(s2++);
 	return (ret_cpy);
 }
+
+int ends_with(char *str, char e)
+{
+	if (!str)
+		return 0;
+	while (*str)
+		str++;
+	return *(--str) == e;
+}
+
+char **arrdup(int len, char **arr)
+{
+	char **ret = malloc(8 * (len + 1));
+	int counter = 0;
+
+	arr++;
+	while (*arr)
+	{
+		ret[counter++] = strdup(*arr);
+		arr++;
+	}
+	ret[counter] = NULL;
+	return ret;
+}
