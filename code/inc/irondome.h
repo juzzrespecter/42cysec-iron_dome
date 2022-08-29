@@ -15,9 +15,11 @@
 # include <limits.h>
 # include <poll.h>
 
-# define INIT_CTX(ctx)  memset(&ctx, 0, sizeof(ctx))
-# define CLEAR_EVN(ctx) ctx->n_events = 0
-# define EVN_BUF_LEN 2000
+# define INIT_CTX(ctx)    memset(&ctx, 0, sizeof(ctx))
+# define CLEAR_EVN(ctx)   ctx.n_events = 0
+# define RM_FILE_CNT(ctx) ctx.n_files == 0 ? ctx.n_files = 0 : ctx.n_files--
+
+# define EVN_BUF_LEN (sizeof(struct inotify_event) + NAME_MAX + 1) * 20
 
 typedef struct event_node {
     int   wd;
@@ -34,7 +36,7 @@ typedef struct monitor_ctx {
     int            n_files;
 } monitor_ctx_t;
 
-int fs_monitor(char *root);
+int fs_monitor(char *);
 
 /* event list funcs. */
 event_node_t **add_event(int, char *, event_node_t **);
