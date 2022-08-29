@@ -4,7 +4,7 @@
 static const int nfds = 1;
 static const int timeout = -1;
 
-static monitor_ctx_t ctx;
+static monitor_ctx_t ctx; /* monitor context global variable */
 
 static void set_pathname(char *pathbuf, char *pathname, char *dirname)
 {
@@ -34,9 +34,9 @@ static int event_create_dir(struct inotify_event *evn)
     return 0;
 }
 
-static int event_rm_dir(int fd, struct inotify_event *evn, event_node_t **alst)
+static int event_rm_dir(struct inotify_event *evn)
 {
-    event_node_t *n = *alst;
+    event_node_t *n = ctx.alst;
 
     while (n)
     {
@@ -106,7 +106,7 @@ static void event_loop(void)
             evn = (struct inotify_event *)ptr;
 
             /* event is a file creation && file is a directory */
-            if (evn->mask & IN_CREATE && env->mask & IN_ISDIR) /* test if masks are compatible */
+            if (evn->mask & IN_CREATE && evn->mask & IN_ISDIR) /* test if masks are compatible */
             {
                 printf("[DEBUG] new directory created\n");
                 event_create_dir(evn);
@@ -147,9 +147,9 @@ int fs_monitor(char *root)
         perror("inotify_init1");
         return 1;
     }
-    if (!recursive_dir_access(root, &ctx.alst))
+    if (!recursive_dir_access(root))
     {
-	clean_ctx(ctx); 
+	clean_ctx(&ctx); 
         return 1;
     }
     fds.fd = ctx.fd;

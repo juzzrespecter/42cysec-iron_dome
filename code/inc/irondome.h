@@ -34,7 +34,7 @@ typedef struct monitor_ctx {
     int            n_files;
 } monitor_ctx_t;
 
-void fs_monitor(char *root);
+int fs_monitor(char *root);
 
 /* event list funcs. */
 event_node_t **add_event(int, char *, event_node_t **);

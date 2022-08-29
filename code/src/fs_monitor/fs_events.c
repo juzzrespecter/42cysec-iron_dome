@@ -19,9 +19,9 @@ static void add_back(event_node_t **alst, event_node_t *n)
 event_node_t **add_event(int fd, char *pathname, event_node_t **alst)
 {
     int wd;
-    event_node_t *n
+    event_node_t *n;
 
-        wd = inotify_add_watch(fd, pathname, IN_OPEN | IN_DELETE_SELF | IN_CREATE);
+    wd = inotify_add_watch(fd, pathname, IN_OPEN | IN_DELETE_SELF | IN_CREATE);
     if (wd == -1)
     {
         perror("inotify_add_watch");
@@ -60,18 +60,19 @@ event_node_t **rm_event(int fd, event_node_t *n, event_node_t **alst)
         return NULL;
     prev->n = next;
     clean_event_node(fd, n);
+    return alst;
 }
 
-void clean_ctx(int fd, event_node_t **alst)
+void clean_ctx(monitor_ctx_t* ctx)
 {
-    event_node_t *n = *alst;
+    event_node_t *n = ctx->alst;
     event_node_t *m;
 
     while (!n->n)
     {
         m = n->n;
-        clean_event_node(fd, n);
+        clean_event_node(ctx->fd, n);
         n = m;
     }
-    free(fd);
+    close(ctx->fd);
 }
