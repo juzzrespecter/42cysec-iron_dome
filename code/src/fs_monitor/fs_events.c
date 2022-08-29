@@ -41,6 +41,13 @@ event_node_t **add_event(int fd, char *pathname, event_node_t **alst)
     return alst;
 }
 
+static void clean_event_node(int fd, event_node_t *n)
+{
+    inotify_rm_watch(fd, n->wd);
+    free(n->pathname);
+    free(n);
+}
+
 /* remove event form list */
 event_node_t **rm_event(int fd, event_node_t *n, event_node_t **alst)
 {
@@ -55,14 +62,7 @@ event_node_t **rm_event(int fd, event_node_t *n, event_node_t **alst)
     clean_event_node(fd, n);
 }
 
-void clean_event_node(int fd, event_node_t *n)
-{
-    inotify_rm_watch(fd, n->wd);
-    free(n->pathname);
-    free(n);
-}
-
-void clean_events(int fd, event_node_t **alst)
+void clean_ctx(int fd, event_node_t **alst)
 {
     event_node_t *n = *alst;
     event_node_t *m;
@@ -73,4 +73,5 @@ void clean_events(int fd, event_node_t **alst)
         clean_event_node(fd, n);
         n = m;
     }
+    free(fd);
 }

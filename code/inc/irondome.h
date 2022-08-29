@@ -15,19 +15,31 @@
 # include <limits.h>
 # include <poll.h>
 
+# define INIT_CTX(ctx)  memset(&ctx, 0, sizeof(ctx))
+# define CLEAR_EVN(ctx) ctx->n_events = 0
 # define EVN_BUF_LEN 2000
 
 typedef struct event_node {
     int   wd;
-    char* pathname;
-    struct event_node* n;
+    char *pathname;
+    struct event_node *n;
 } event_node_t;
+
+typedef struct monitor_ctx {
+    int            fd;        /* inotify file descriptor */
+    char         **file_ext;  /* list of file extensions to monitor */
+    event_node_t  *alst;      /* event list */
+
+    int            n_events;
+    int            n_files;
+} monitor_ctx_t;
 
 void fs_monitor(char *root);
 
-event_node_t** add_event(int fd, char *pathname, event_node_t **alst);
-static void add_back(event_node_t **alst, event_node_t *n);
-void clean_event_list(event_node_t **alst);
+/* event list funcs. */
+event_node_t **add_event(int, char *, event_node_t **);
+event_node_t **rm_event(int, event_node_t *, event_node_t **);
+void           clean_ctx(monitor_ctx_t *);
 
 double	entropy(char *path);
 char	*ft_strjoin(char const *s1, char const *s2);

@@ -1,24 +1,10 @@
 #include "irondome.h"
 
-/* need to keep track of number of files in monitored directories */
-
 /* poll constants */
 static const int nfds = 1;
 static const int timeout = -1;
 
-static int is_dir(char *filename)
-{
-    struct stat f_info;
-
-    memset(&f_info, 0, sizeof(f_info));
-    if (stat(filename, &f_info) == -1)
-    {
-        fprintf(stderr, "stat: %s\n", strerror(errno));
-        errno = 0;
-        return 0;
-    }
-    return S_ISDIR(f_info.st_mode);
-}
+static monitor_ctx_t ctx;
 
 static void set_pathname(char *pathbuf, char *pathname, char *dirname)
 {
@@ -28,26 +14,23 @@ static void set_pathname(char *pathbuf, char *pathname, char *dirname)
     strncat(pathbuf, dirname, strlen(dirname) + 1);
 }
 
-static int event_create_dir(int fd, struct inotify_event *evn, event_node_t **alst)
+static int event_create_dir(struct inotify_event *evn)
 {
-    event_node_t *n = *alst;
-    char *path = NULL;
-    char pathbuf[PATH_MAX] = {0};
+    event_node_t *n = ctx.alst;
+    char  pathbuf[PATH_MAX] = {0};
 
     /* loop through list until event wd matches */
     while (n)
     {
         if (evn->wd == n->wd)
-        {
-            path = n->pathname;
             break;
-        }
         n = n->n;
     }
     if (!n)
         return 1;
     set_pathname(pathbuf, n->pathname, evn->name);
-    add_event(fd, pathbuf, alst);
+    if (!add_event(ctx.fd, pathbuf, &ctx.alst))
+	return 1;
     return 0;
 }
 
@@ -63,11 +46,50 @@ static int event_rm_dir(int fd, struct inotify_event *evn, event_node_t **alst)
     }
     if (!n)
         return 1;
-    rm_event(fd, n, alst);
+    rm_event(ctx.fd, n, &ctx.alst);
     return 0;
 }
 
-void event_loop(int fd, event_node_t **alst)
+static event_node_t *recursive_dir_access(char *pathname)
+{
+    DIR *root_st;
+    struct dirent *dir_st; /* statically allocated, do not free ! */
+    char pathbuf[PATH_MAX + 1];
+
+    root_st = opendir(pathname);
+    if (!root_st)
+    {
+        perror("opendir");
+        return NULL;
+    }
+    errno = 0;
+    for (dir_st = readdir(root_st); dir_st != NULL; dir_st = readdir(root_st))
+    {
+        if (!strncmp(".", dir_st->d_name, 2) || !strncmp("..", dir_st->d_name, 3))
+            continue;
+        set_pathname(pathbuf, pathname, dir_st->d_name);
+	if (dir_st->d_type == DT_REG)
+	    ctx.n_files++;
+        if (dir_st->d_type != DT_DIR || !strncmp(pathbuf, "/dev", 5) || !strncmp(pathbuf, "/proc", 5))
+            continue;
+        printf("[debug] found directory: %s\n", pathbuf);
+        if (!add_event(ctx.fd, pathbuf, &ctx.alst))
+	{
+	    closedir(root_st);
+            return NULL;
+	}
+        recursive_dir_access(pathbuf);
+    }
+    closedir(root_st);
+    if (errno != 0)
+    {
+        perror("readdir");
+        return NULL;
+    }
+    return ctx.alst;
+}
+
+static void event_loop(void)
 {
     int i = 0, evn_len;
     char evn_buf[EVN_BUF_LEN] = {0};
@@ -75,7 +97,7 @@ void event_loop(int fd, event_node_t **alst)
 
     while (i == 0)
     {
-        evn_len = read(fd, evn_buf, sizeof(evn_buf));
+        evn_len = read(ctx.fd, evn_buf, sizeof(evn_buf));
         if (evn_len == -1)
             break;
         for (char *ptr = evn_buf; ptr < evn_buf + evn_len;
@@ -87,12 +109,12 @@ void event_loop(int fd, event_node_t **alst)
             if (evn->mask & IN_CREATE && env->mask & IN_ISDIR) /* test if masks are compatible */
             {
                 printf("[DEBUG] new directory created\n");
-                event_create_dir(fd, alst);
+                event_create_dir(evn);
             }
             else if (evn->mask & IN_DELETE && evn->mask & IN_ISDIR)
             {
                 printf("[DEBUG] directory has been removed\n");
-                event_rm_dir(fd, evn, alst);
+                event_rm_dir(evn);
             }
             else if (evn->mask & IN_DELETE_SELF)
             {
@@ -111,70 +133,38 @@ void event_loop(int fd, event_node_t **alst)
     }
 }
 
-static event_node_t *recursive_dir_access(int fd, char *pathname, event_node_t *alst)
-{
-    DIR *root_st;
-    struct dirent *dir_st; /* statically allocated, do not free ! */
-    char pathbuf[PATH_MAX + 1];
-    static int dir_n = 0; /* testing ... */
 
-    dir_n++;
-    root_st = opendir(pathname);
-    if (!root_st)
-    {
-        perror("opendir");
-        return NULL;
-    }
-    errno = 0;
-    for (dir_st = readdir(root_st); dir_st != NULL; dir_st = readdir(root_st))
-    {
-        if (!strncmp(".", dir_st->d_name, 2) || !strncmp("..", dir_st->d_name, 3))
-            continue;
-        set_pathname(pathbuf, pathname, dir_st->d_name);
-        if (!is_dir(pathbuf) || !strncmp(pathbuf, "/dev", 5) || !strncmp(pathbuf, "/proc", 5))
-            continue;
-        printf("[debug] found directory: %s\n", pathbuf);
-        if (!add_event(fd, pathbuf, alst))
-            return NULL;
-        recursive_dir_access(fd, pathbuf, alst);
-    }
-    if (errno != 0)
-    {
-        perror("readdir");
-        closedir(root_st);
-        return NULL;
-    }
-    return alst;
-}
 
 int fs_monitor(char *root)
 {
-    int fd, nevents;
-    event_node_t *event_lst = NULL;
+    int           nevents;
     struct pollfd fds;
 
-    fd = inotify_init1(IN_NONBLOCK);
-    if (fd == -1)
+    INIT_CTX(ctx);
+    ctx.fd = inotify_init1(IN_NONBLOCK);
+    if (ctx.fd == -1)
     {
         perror("inotify_init1");
         return 1;
     }
-    event_lst = recursive_dir_access(root, &event_lst); /* capture snapshot of current dir. structure, return array of events */
-    if (!event_lst)
+    if (!recursive_dir_access(root, &ctx.alst))
+    {
+	clean_ctx(ctx); 
         return 1;
-    fds.fd = fd;
+    }
+    fds.fd = ctx.fd;
     fds.events = POLLIN;
     while (1)
     {
-        nevents = poll(fds, nfds, timeout);
+        nevents = poll(&fds, nfds, timeout);
         if (nevents == -1)
         {
             if (errno == EINTR)
                 continue ;
-            perror("poll")
+            perror("poll");
             return 1;
         }
         if (fds.revents & POLLIN)
-            event_loop(fd, event_lst);
+            event_loop();
     }
 }

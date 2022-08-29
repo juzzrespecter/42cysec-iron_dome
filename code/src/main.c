@@ -35,4 +35,6 @@ int main(int argc, char **argv)
 	//sleep(10);
 	char **hola = arrdup(argc - 1, argv);
 	char **adios = arrdup(argc - 1, argv);
+	(void) hola;
+	(void) adios;
 }

@@ -30,6 +30,14 @@ $(DIR_SRC)%.c:
 $(DIR_INC)%.h:
 	@echo ${RD} [ error ] ${FN} "$@: file not found"
 
+clean:
+	@rm -rf $(NAME)
+	@echo ${RD} [ rm ] ${FN} "$(NAME): removed"
+
+fclean:	clean
+	@rm -rf $(OBJ_DIR)
+	@echo ${RD} [ rm ] ${FN} "$(OBJ_DIR): removed"
+
 # ~  aesthetica ~
 GR="\033[32m"
 RD="\033[31m"
