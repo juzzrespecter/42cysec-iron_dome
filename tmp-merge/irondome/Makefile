@@ -5,7 +5,8 @@ OBJ_DIR = obj/
 INC_DIR = inc/
 
 SRC = main.c \
-		monitor.c
+		fs_monitor.c \
+		fs_events.c
 OBJ = $(patsubst %.c, $(OBJ_DIR)%.o, $(SRC))
 INC = irondome.h
 

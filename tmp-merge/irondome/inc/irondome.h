@@ -10,6 +10,7 @@
 # include <errno.h>
 # include <stdbool.h>
 # include <limits.h>
+# include <poll.h>
 
 # define EVN_BUF_LEN 2000
 
@@ -19,7 +20,7 @@ typedef struct event_node {
     struct event_node* n;
 } event_node_t;
 
-void event_loop(int wd); /* tmp */
+void fs_monitor(char *root);
 
 event_node_t** add_event(int fd, char *pathname, event_node_t **alst);
 static void add_back(event_node_t **alst, event_node_t *n);
