@@ -171,11 +171,11 @@ static void event_loop(void)
 
             if (evn->mask & IN_CREATE)
                 event_in_create(evn);
-            else if (evn->mask & IN_DELETE)
+            else if (evn->mask & IN_DELETE || (evn->mask & IN_DELETE_SELF && evn->wd != 1))
                 event_in_delete(evn);
             else if (evn->mask & IN_ACCESS || evn->mask & IN_OPEN)
                 event_in_open(evn);
-            else if (evn->mask & IN_DELETE_SELF)
+            else if (evn->mask & IN_DELETE_SELF && evn->wd == 1)
                 clean_n_exit(EXIT_SUCCESS);
         }
     }
