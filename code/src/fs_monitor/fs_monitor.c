@@ -2,9 +2,9 @@
 
 /* poll constants */
 static const int nfds = 1;
-static const int timeout = -1;
+static const int timeout = 0;
 
-static monitor_ctx_t ctx; /* monitor context global variable */
+static monitor_ctx_t ctx;
 
 static void set_pathname(char *pathbuf, char *pathname, char *dirname)
 {
@@ -16,16 +16,16 @@ static void set_pathname(char *pathbuf, char *pathname, char *dirname)
 
 static void clean_n_exit(int status)
 {
-    event_node_t *n = ctx->alst;
+    event_node_t *n = ctx.alst;
     event_node_t *m;
 
     while (!n->n)
     {
         m = n->n;
-        clean_event_node(ctx->fd, n);
+        clean_event_node(ctx.fd, n);
         n = m;
     }
-    close(ctx->fd);
+    close(ctx.fd);
     exit(status);
 }
 
@@ -41,7 +41,7 @@ static event_node_t *recursive_dir_access(char *pathname)
         perror("opendir");
         return NULL;
     }
-    if (!add_event(ctx.fd, root_st, &ctx.alst))
+    if (!add_event(ctx.fd, pathname, &ctx.alst))
     {
         closedir(root_st);
         return NULL;
@@ -68,22 +68,9 @@ static event_node_t *recursive_dir_access(char *pathname)
     return ctx.alst;
 }
 
-static void DEBUG_print_list(void)
+static void print_event(int wd)
 {
-    event_node_t *n = ctx.alst;
-
-    for (int i = 0; n != NULL; n = n->n)
-    {
-        printf("< -------- node {%d} -------- >\n", i);
-        printf("wd: %d\n", n->wd);
-        printf("path: %s\n\n", n->pathname);
-        i++;
-    }
-}
-
-static void DEBUG_id_event(int wd)
-{
-    printf("mask type:\n");
+    printf("  events:\n");
     if (wd & IN_ACCESS)        printf("\tIN_ACCESS\n");
     if (wd & IN_ATTRIB)        printf("\tIN_ATTRIB\n");
     if (wd & IN_CLOSE_NOWRITE) printf("\tIN_CLOSE_NOWRITE\n");
@@ -95,18 +82,6 @@ static void DEBUG_id_event(int wd)
     if (wd & IN_MOVED_FROM)    printf("\tIN_MOVED_FROM\n");
     if (wd & IN_MOVED_TO)      printf("\tIN_MOVED_TO\n");
     if (wd & IN_OPEN)          printf("\tIN_OPEN\n");
-}
-
-static void DEBUG_print_event(ievent_t *ptr)
-{
-    printf("< -------- event --------> \n");
-    printf("wd: (%d)\n", ptr->wd);
-    printf("mask: (%u)\n", ptr->mask);
-    DEBUG_id_event(ptr->wd);
-    printf("cookie: (%u)\n", ptr->cookie);
-    printf("len: (%u)\n", ptr->len);
-    if (ptr->len > 0)
-        printf("name: (%s)\n\n", ptr->name);
 }
 
 static event_node_t* search_node(int wd)
@@ -124,7 +99,7 @@ static event_node_t* search_node(int wd)
 
 static int event_in_create(ievent_t *evn)
 {
-    event_node_t *n ;
+    event_node_t *n;
     char pathbuf[PATH_MAX] = {0};
 
     if (!(evn->mask & IN_ISDIR))
@@ -135,7 +110,7 @@ static int event_in_create(ievent_t *evn)
     n = search_node(evn->wd);
     if (!n)
         return 1;
-    set_pathname(pathbuf, n->pathname, evn->name);
+    set_pathname(pathbuf, n->pathname, evn->name); /* needs testing */
     printf("started monitoring directory %s [ create ]\n", pathbuf);
     if (!add_event(ctx.fd, pathbuf, &ctx.alst))
         return 1;
@@ -151,17 +126,30 @@ static int event_in_delete(ievent_t *evn)
         RM_FILE_CNT(ctx);
         return 0;
     }
-    printf("stopped monitoring directory %s [ rm ]\n");
     n = search_node(evn->wd);
     if (!n)
         return 1;
+    printf("stopped monitoring directory %s [ rm ]\n", n->pathname);
     rm_event(ctx.fd, n, &ctx.alst);
     return 0;
 }
 
-static int event_in_open()
+static int event_in_open(ievent_t *evn)
 {
-/* ... */
+    event_node_t* n;
+    char pathbuf[PATH_MAX] = {0};
+
+    n = search_node(evn->wd);
+    if (!n)
+        return 1;
+    set_pathname(pathbuf, n->pathname, evn->name);
+    printf("> caught event:\n");
+    printf("  file name: %s\n", pathbuf);
+    print_event(evn->wd);
+    printf("\n");
+
+    ctx.n_events++;
+    return 0;
 }
 
 static void event_loop(void)
@@ -172,7 +160,6 @@ static void event_loop(void)
 
     while (true)
     {
-        printf("[ debug ] read lee de (%d)\n", ctx.fd);
         evn_len = read(ctx.fd, evn_buf, sizeof(evn_buf));
         if (evn_len == -1)
             break;
@@ -180,7 +167,7 @@ static void event_loop(void)
         for (char *ptr = evn_buf; ptr < evn_buf + evn_len;
              ptr += sizeof(ievent_t) + evn->len)
         {
-            evn = (const ievent_t *)ptr;
+            evn = (ievent_t *)ptr;
 
             if (evn->mask & IN_CREATE)
                 event_in_create(evn);
@@ -194,7 +181,7 @@ static void event_loop(void)
     }
 }
 
-void fs_monitor_poll(void)
+static void fs_monitor_poll(void)
 {
     int           nevents;
     struct pollfd fds;    
@@ -203,22 +190,21 @@ void fs_monitor_poll(void)
     fds.events = POLLIN;
     while (1)
     {
-        printf("[ WAITING IN POLL ]\n");
         nevents = poll(&fds, nfds, timeout);
-        printf(" [ ENTERING POLL ]\n");
         if (nevents == -1)
         {
             if (errno == EINTR)
                 continue;
             perror("poll");
-            return 1;
+            exit(EXIT_FAILURE);
         }
         if (fds.revents & POLLIN)
             event_loop();
     }
 }
 
-void fs_monitor(void *res)
+/* void resources */
+void fs_monitor(char *root)
 {
     INIT_CTX(ctx);
 
@@ -228,11 +214,7 @@ void fs_monitor(void *res)
         perror("inotify_init1");
         exit(EXIT_FAILURE);
     }
-    printf("[ debug ] inotify me da (%d)\n", ctx.fd);
     if (!recursive_dir_access(root))
-    {
-        clean_ctx(&ctx);
-        exit(EXIT_FAILURE);
-    }
+        clean_n_exit(EXIT_FAILURE);
     fs_monitor_poll();
 }
