@@ -99,17 +99,8 @@ int main(int argc, char **argv)
 		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
 
 	//daemon(0, 0);
-<<<<<<< HEAD
-	//sleep(10);
-	char **hola = arrdup(argc - 1, argv);
-	char **adios = arrdup(argc - 1, argv);
-	(void) hola;
-	(void) adios;
-	fs_monitor(argv[1]);
-=======
 	pthread_join(thr_entropy, NULL);
 	pthread_join(thr_fs, NULL);
 
 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, NULL, NULL, 0);
->>>>>>> b5456950d961156dd39494acce5f820a0b170a6a
 }
