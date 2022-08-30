@@ -63,14 +63,15 @@ void entropy_dir(char* dir_path, int arr[256])
 }
 
 //recieves path of the dir to find entropy
-double entropy(char *path)
+void *entropy(void *shared_void)
 {
 	int arr[256];
+	shared_resources shared = (shared_resources) shared_void;
 
 	for (int i = 0; i < 256; i++)
 		arr[i] = 0;
 	
-	entropy_dir(strdup(path), arr);
+	entropy_dir(strdup((shared->argv)[0]), arr);
 
 	long long int len = 0;
 	for (int i = 0; i < 256; i++)
@@ -84,5 +85,5 @@ double entropy(char *path)
 			sum -= probability * log(probability) / log(256);
 		}
 	}
-	return sum;
+	return NULL;
 }
