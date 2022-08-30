@@ -204,7 +204,7 @@ static void fs_monitor_poll(void)
 }
 
 /* void resources */
-void fs_monitor(char *root)
+void* fs_monitor(char *root)
 {
     INIT_CTX(ctx);
 
