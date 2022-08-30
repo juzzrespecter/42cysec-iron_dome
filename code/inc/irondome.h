@@ -21,6 +21,8 @@
 
 # define EVN_BUF_LEN (sizeof(struct inotify_event) + NAME_MAX + 1) * 20
 
+typedef struct inotify_event ievent_t;
+
 typedef struct event_node {
     int   wd;
     char *pathname;
@@ -41,7 +43,7 @@ int fs_monitor(char *);
 /* event list funcs. */
 event_node_t **add_event(int, char *, event_node_t **);
 event_node_t **rm_event(int, event_node_t *, event_node_t **);
-void           clean_ctx(monitor_ctx_t *);
+void           clean_event_node(int fd, event_node_t *n);
 
 double	entropy(char *path);
 char	*ft_strjoin(char const *s1, char const *s2);

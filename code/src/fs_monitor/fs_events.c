@@ -41,7 +41,7 @@ event_node_t **add_event(int fd, char *pathname, event_node_t **alst)
     return alst;
 }
 
-static void clean_event_node(int fd, event_node_t *n)
+void clean_event_node(int fd, event_node_t *n)
 {
     inotify_rm_watch(fd, n->wd);
     free(n->pathname);
@@ -61,18 +61,4 @@ event_node_t **rm_event(int fd, event_node_t *n, event_node_t **alst)
     prev->n = next;
     clean_event_node(fd, n);
     return alst;
-}
-
-void clean_ctx(monitor_ctx_t* ctx)
-{
-    event_node_t *n = ctx->alst;
-    event_node_t *m;
-
-    while (!n->n)
-    {
-        m = n->n;
-        clean_event_node(ctx->fd, n);
-        n = m;
-    }
-    close(ctx->fd);
 }
