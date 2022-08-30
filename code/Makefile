@@ -17,7 +17,7 @@ CXXFLAGS = -Wall -Werror -Wextra
 all: $(NAME)
 
 $(NAME): $(OBJ)
-	@$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ) -lm
+	@$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ) -lm -lpthread
 
 $(OBJ_DIR)%.o: $(SRC_DIR)%.c
 	@mkdir -p $(@D)

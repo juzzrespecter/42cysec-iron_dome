@@ -1,5 +1,12 @@
 #include "../inc/irondome.h"
 
+void write_to_log(int fd, pthread_mutex_t *mutex, char* message)
+{
+	pthread_mutex_lock(mutex);
+	dprintf(fd, message);
+	pthread_mutex_unlock(mutex);
+}
+
 static int error_printer(char *error)
 {
 	dprintf(STDERR_FILENO, error);
@@ -90,17 +97,18 @@ int main(int argc, char **argv)
 	shared_fs.mutex_sync = &mutex_sync;
 	shared_fs.argv = argv_fs;
 	shared_fs.fd = fd;
+	(void) shared_fs;
 
-	pthread_t thr_entropy, thr_fs;
+	pthread_t thr_entropy; // ,thr_fs;
 
 	if (pthread_create(&thr_entropy, NULL, &entropy, &shared_entropy) != 0)
 		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
-	if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
-		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
+	// if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
+	// 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
 
 	//daemon(0, 0);
 	pthread_join(thr_entropy, NULL);
-	pthread_join(thr_fs, NULL);
+	//pthread_join(thr_fs, NULL);
 
 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, NULL, NULL, 0);
 }

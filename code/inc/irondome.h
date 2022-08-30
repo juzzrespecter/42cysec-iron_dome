@@ -57,6 +57,7 @@ void	*entropy(void *shared);
 char	*ft_strjoin(char const *s1, char const *s2);
 int		ends_with(char *str, char e);
 char	**arrdup(int len, char **arr);
+void	write_to_log(int fd, pthread_mutex_t *mutex, char* message);
 
 /*
 //  * File types
