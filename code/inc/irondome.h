@@ -14,6 +14,7 @@
 # include <stdbool.h>
 # include <limits.h>
 # include <poll.h>
+# include <sys/stat.h>
 
 # define INIT_CTX(ctx)  memset(&ctx, 0, sizeof(ctx))
 # define CLEAR_EVN(ctx) ctx->n_events = 0
@@ -34,6 +35,13 @@ typedef struct monitor_ctx {
     int            n_files;
 } monitor_ctx_t;
 
+typedef struct {
+	int fd;
+	char **argv;
+	pthread_mutex_t *mutex_write;
+	pthread_mutex_t *mutex_sync;
+} shared_resources;
+
 int fs_monitor(char *root);
 
 /* event list funcs. */
@@ -41,7 +49,7 @@ event_node_t **add_event(int, char *, event_node_t **);
 event_node_t **rm_event(int, event_node_t *, event_node_t **);
 void           clean_ctx(monitor_ctx_t *);
 
-double	entropy(char *path);
+void	*entropy(void *shared);
 char	*ft_strjoin(char const *s1, char const *s2);
 int		ends_with(char *str, char e);
 char	**arrdup(int len, char **arr);
