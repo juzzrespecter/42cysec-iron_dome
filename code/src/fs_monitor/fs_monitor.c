@@ -162,8 +162,8 @@ static int event_in_open(ievent_t *evn)
     if (!n)
         return 1;
     set_pathname(pathbuf, n->pathname, evn->name);
-    if (extcmp(pathbuf, (ctx.sr->argv + sizeof(char *) * 2)))
-	return 0;
+    if (extcmp(pathbuf, ctx.sr->argv + sizeof(char *)))
+	    return 0;
     printf("> caught event:\n");
     printf("  file name: %s\n", pathbuf);
     print_event(evn->wd);
@@ -201,11 +201,13 @@ static void event_loop(void)
 
 static int fs_monitor_loop_switch(void)
 {
-    int sync_switch;
+    int sync_switch = 0;
 
-    pthread_mutex_lock(ctx.sr->sync_lock);
+    pthread_mutex_lock(ctx.sr->mutex_sync);
     sync_switch = ctx.sr->sync_switch;
-    pthread_mutex_unlock(ctx.sr->sync_lock);
+    if (!sync_switch)
+        ctx.sr->sync_switch = 1;
+    pthread_mutex_unlock(ctx.sr->mutex_sync);
     return sync_swicth;
 }
 
@@ -221,11 +223,11 @@ static void fs_monitor_poll(void)
 
     fds.fd = ctx.fd;
     fds.events = POLLIN;
-    while (!end)
+    while (!read_end())
     {
-	if (!fs_monitor_loop_switch())
-	    continue;
-	
+        if (!fs_monitor_loop_switch())
+            continue;
+
         nevents = poll(&fds, nfds, timeout);
         if (nevents == -1)
         {
@@ -236,7 +238,7 @@ static void fs_monitor_poll(void)
         }
         if (fds.revents & POLLIN)
             event_loop();
-	logger();
+        logger();
     }
 }
 
