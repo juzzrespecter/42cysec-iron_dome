@@ -1,5 +1,7 @@
 #include "irondome.h"
 
+extern int end;
+
 /* poll constants */
 static const int nfds = 1;
 static const int timeout = 0;
@@ -16,7 +18,7 @@ static int extcmp(char *filename, char **extarr)
         return 1;
     for (int i = 0; extarr[i]; i++)
     {
-        if (!strncmp(ext, extarr[i], len(ext) + 1))
+        if (!strncmp(ext, extarr[i], strlen(ext) + 1))
             return 0;
     }
     return 1;
@@ -160,6 +162,8 @@ static int event_in_open(ievent_t *evn)
     if (!n)
         return 1;
     set_pathname(pathbuf, n->pathname, evn->name);
+    if (extcmp(pathbuf, (ctx.sr->argv + sizeof(char *) * 2)))
+	return 0;
     printf("> caught event:\n");
     printf("  file name: %s\n", pathbuf);
     print_event(evn->wd);
@@ -175,27 +179,39 @@ static void event_loop(void)
     char      evn_buf[EVN_BUF_LEN] = {0};
     ievent_t *evn;
 
-    while (true)
+    evn_len = read(ctx.fd, evn_buf, sizeof(evn_buf));
+    if (evn_len == -1)
+        return ;
+    
+    for (char *ptr = evn_buf; ptr < evn_buf + evn_len;
+         ptr += sizeof(ievent_t) + evn->len)
     {
-        evn_len = read(ctx.fd, evn_buf, sizeof(evn_buf));
-        if (evn_len == -1)
-            break;
-
-        for (char *ptr = evn_buf; ptr < evn_buf + evn_len;
-             ptr += sizeof(ievent_t) + evn->len)
-        {
-            evn = (ievent_t *)ptr;
-
-            if (evn->mask & IN_CREATE)
-                event_in_create(evn);
-            else if (evn->mask & IN_DELETE || (evn->mask & IN_DELETE_SELF && evn->wd != 1))
-                event_in_delete(evn);
-            else if (evn->mask & IN_ACCESS || evn->mask & IN_OPEN)
-                event_in_open(evn);
-            else if (evn->mask & IN_DELETE_SELF && evn->wd == 1)
-                clean_n_exit(EXIT_SUCCESS);
-        }
+        evn = (ievent_t *)ptr;
+	
+        if (evn->mask & IN_CREATE)
+            event_in_create(evn);
+        else if (evn->mask & IN_DELETE || (evn->mask & IN_DELETE_SELF && evn->wd != 1))
+            event_in_delete(evn);
+        else if (evn->mask & IN_ACCESS || evn->mask & IN_OPEN)
+            event_in_open(evn);
+        else if (evn->mask & IN_DELETE_SELF && evn->wd == 1)
+            clean_n_exit(EXIT_SUCCESS);
     }
+}
+
+static int fs_monitor_loop_switch(void)
+{
+    int sync_switch;
+
+    pthread_mutex_lock(ctx.sr->sync_lock);
+    sync_switch = ctx.sr->sync_switch;
+    pthread_mutex_unlock(ctx.sr->sync_lock);
+    return sync_swicth;
+}
+
+void logger()
+{
+    /* logger logic */
 }
 
 static void fs_monitor_poll(void)
@@ -205,8 +221,11 @@ static void fs_monitor_poll(void)
 
     fds.fd = ctx.fd;
     fds.events = POLLIN;
-    while (1)
+    while (!end)
     {
+	if (!fs_monitor_loop_switch())
+	    continue;
+	
         nevents = poll(&fds, nfds, timeout);
         if (nevents == -1)
         {
@@ -217,6 +236,7 @@ static void fs_monitor_poll(void)
         }
         if (fds.revents & POLLIN)
             event_loop();
+	logger();
     }
 }
 
@@ -232,8 +252,8 @@ void* fs_monitor(void *args)
         perror("inotify_init1");
         clean_n_exit(EXIT_FAILURE);
     }
-    if (!recursive_dir_access(root))
+    if (!recursive_dir_access(ctx.sr->argv[1]))
         clean_n_exit(EXIT_FAILURE);
     fs_monitor_poll();
-	return NULL;
+    return NULL;
 }
