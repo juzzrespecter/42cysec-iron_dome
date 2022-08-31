@@ -1,10 +1,36 @@
 #include "../inc/irondome.h"
 
+int end;
+pthread_mutex_t mutex_end;
+
+void sig_handler(int signum) 
+{
+	(void) signum;
+	end_to_true();
+}
+
 void write_to_log(int fd, pthread_mutex_t *mutex, char* message)
 {
 	pthread_mutex_lock(mutex);
-	dprintf(fd, message);
+	int status = dprintf(fd, message);
+	if (status < 0)
+		end_to_true();
 	pthread_mutex_unlock(mutex);
+}
+
+int read_end()
+{
+	pthread_mutex_lock(&mutex_end);
+	int aux = end;
+	pthread_mutex_unlock(&mutex_end);
+	return aux;
+}
+
+void end_to_true()
+{
+	pthread_mutex_lock(&mutex_end);
+	end = 1;
+	pthread_mutex_unlock(&mutex_end);
 }
 
 static int error_printer(char *error)
@@ -100,15 +126,21 @@ int main(int argc, char **argv)
 	(void) shared_fs;
 
 	pthread_t thr_entropy; // ,thr_fs;
+	end = 0;
 
+	daemon(0, 0);
 	if (pthread_create(&thr_entropy, NULL, &entropy, &shared_entropy) != 0)
 		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
 	// if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
 	// 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
 
-	//daemon(0, 0);
+	signal(SIGINT, sig_handler);
+	write_to_log(fd, &mutex_write, "Starting monitoring of directory ");
+	write_to_log(fd, &mutex_write, argv[1]);
+	write_to_log(fd, &mutex_write, "\n\n");
 	pthread_join(thr_entropy, NULL);
 	//pthread_join(thr_fs, NULL);
 
+	write_to_log(fd, &mutex_write, "\n\n");
 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, NULL, NULL, 0);
 }

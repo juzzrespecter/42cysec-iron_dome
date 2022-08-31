@@ -217,4 +217,5 @@ void* fs_monitor(char *root)
     if (!recursive_dir_access(root))
         clean_n_exit(EXIT_FAILURE);
     fs_monitor_poll();
+	return NULL;
 }

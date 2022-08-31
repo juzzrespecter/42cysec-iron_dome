@@ -1,7 +1,5 @@
 #include "../inc/irondome.h"
 
-//error hadling could be better with some prints or using perror
-
 void entropy_file(char* path, int arr[256])
 {
 	// printf("%s", path);
@@ -10,6 +8,12 @@ void entropy_file(char* path, int arr[256])
 	if (fd < 0)
 		return ;
 	unsigned char *save = malloc(1001);
+	if (!save)
+	{
+		close(fd);
+		end_to_true();
+		return ;
+	}
 	int amount = read(fd, save, 1000);
 
 	while (amount > 0) {
@@ -30,12 +34,15 @@ void entropy_dir(char* dir_path, int arr[256])
 	DIR* dir = opendir(dir_path);
 	
 	if (!dir)
+	{
+		end_to_true();
 		return ;
+	}
 
 	struct dirent *elem = readdir(dir);
 	char *join1, *join2;
 
-	while (elem != NULL) 
+	while (elem != NULL && !read_end()) 
 	{
 		if ((elem->d_type == DT_DIR || elem->d_type == DT_REG) && strcmp(elem->d_name, "pagemap"))
 		{
@@ -43,7 +50,18 @@ void entropy_dir(char* dir_path, int arr[256])
 				join1 = ft_strjoin(dir_path, "/");
 			else 
 				join1 = strdup(dir_path);
+			if (!join1) 
+			{
+				end_to_true();
+				break ;
+			}
 			join2 = ft_strjoin(join1, elem->d_name);
+			if (!join2)
+			{
+				end_to_true();
+				free(join1);
+				break ;
+			}
 			if (elem->d_type == DT_DIR && strcmp(elem->d_name, ".") && strcmp(elem->d_name, "..") && strcmp(join2, "/dev") && strcmp(join2, "/proc"))
 			{
 				entropy_dir(join2, arr);
@@ -62,39 +80,60 @@ void entropy_dir(char* dir_path, int arr[256])
 	// fflush(NULL);
 }
 
-//TODO
-//solve the case were nothing is there and smt gets created even though might not make sense
 //recieves path of the dir to find entropy
 void *entropy(void *shared_void)
 {
-	int arr[256];
 	shared_resources *shared = (shared_resources *) shared_void;
-	double prev_ent;
-	double curr_ent = 0;
+	int arr[256];
+	double initial_ent;
+	double curr_ent;
+	double probability;
+	int first = 1;
+	int warning_level = 0;
 
-	while (1)
+	while (!read_end())
 	{
-		prev_ent = curr_ent;
 		for (int i = 0; i < 256; i++)
 			arr[i] = 0;
 		
 		entropy_dir((shared->argv)[0], arr);
 
-		long long int len = 0;
-		for (int i = 0; i < 256; i++)
-			len += arr[i];
-		curr_ent = 0;
-		for (int i = 0; i < 256; i++)
+		if (!read_end())
 		{
-			if (arr[i])
+			long long int len = 0;
+			for (int i = 0; i < 256; i++)
+				len += arr[i];
+			curr_ent = 0;
+			for (int i = 0; i < 256; i++)
 			{
-				double probability = (double) arr[i] / (double) len;
-				curr_ent -= probability * log(probability) / log(256);
+				if (arr[i])
+				{
+					probability = (double) arr[i] / (double) len;
+					curr_ent -= probability * log(probability) / log(256);
+				}
 			}
+			if (first)
+				initial_ent = curr_ent;
+			//50%
+			if (((curr_ent - initial_ent)/(1 - initial_ent) > 0.697) && warning_level < 3)
+			{
+				write_to_log(shared->fd, shared->mutex_write, "[WARNING] critical entropy change!!\n");
+				warning_level = 3;
+			}
+			//20% 
+			else if (((curr_ent - initial_ent)/(1 - initial_ent) > 0.348) && warning_level < 2)
+			{
+				write_to_log(shared->fd, shared->mutex_write, "[WARNING] entropy change!!\n");
+				warning_level = 2;
+			}
+			//10%
+			else if (((curr_ent - initial_ent)/(1 - initial_ent) > 0.197) && warning_level < 1)
+			{
+				write_to_log(shared->fd, shared->mutex_write, "[WARNING] low entropy change!!\n");
+				warning_level = 1;
+			}
+			first = 0;
 		}
-		if (prev_ent != 0)
-			if (curr_ent - prev_ent != 0)
-				write_to_log(shared->fd, shared->mutex_write, "Entropy change!!\n");
 	}
 	return NULL;
 }

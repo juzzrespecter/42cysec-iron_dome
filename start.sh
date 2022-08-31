@@ -11,6 +11,7 @@ case $1 in
                -it \
                --name ${NAME} \
                -v $PWD/code:/code \
+			   -v $PWD/files:/files \
                ${NAME} \
                /bin/bash
 	;;
