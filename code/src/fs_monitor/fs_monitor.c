@@ -6,6 +6,22 @@ static const int timeout = 0;
 
 static monitor_ctx_t ctx;
 
+static int extcmp(char *filename, char **extarr)
+{
+    if (!extarr)
+        return 0; /* no file extensions selected, monitoring everything */
+    char *ext = strrchr(filename, '.');
+
+    if (!ext)
+        return 1;
+    for (int i = 0; extarr[i]; i++)
+    {
+        if (!strncmp(ext, extarr[i], len(ext) + 1))
+            return 0;
+    }
+    return 1;
+}
+
 static void set_pathname(char *pathbuf, char *pathname, char *dirname)
 {
     memset(pathbuf, 0, PATH_MAX);
@@ -25,7 +41,8 @@ static void clean_n_exit(int status)
         clean_event_node(ctx.fd, n);
         n = m;
     }
-    close(ctx.fd);
+    if (ctx.fd != -1)
+        close(ctx.fd);
     exit(status);
 }
 
@@ -204,15 +221,16 @@ static void fs_monitor_poll(void)
 }
 
 /* void resources */
-void* fs_monitor(char *root)
+void* fs_monitor(void *args)
 {
     INIT_CTX(ctx);
 
+    ctx.sr = (shared_resources)args;
     ctx.fd = inotify_init1(IN_NONBLOCK);
     if (ctx.fd == -1)
     {
         perror("inotify_init1");
-        exit(EXIT_FAILURE);
+        clean_n_exit(EXIT_FAILURE);
     }
     if (!recursive_dir_access(root))
         clean_n_exit(EXIT_FAILURE);

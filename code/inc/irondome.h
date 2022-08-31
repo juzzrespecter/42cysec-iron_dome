@@ -25,6 +25,13 @@
 
 typedef struct inotify_event ievent_t;
 
+typedef struct {
+	int fd;
+	char **argv;
+	pthread_mutex_t *mutex_write;
+	pthread_mutex_t *mutex_sync;
+} shared_resources;
+
 typedef struct event_node {
     int   wd;
     char *pathname;
@@ -32,20 +39,14 @@ typedef struct event_node {
 } event_node_t;
 
 typedef struct monitor_ctx {
-    int            fd;        /* inotify file descriptor */
-    char         **file_ext;  /* list of file extensions to monitor */
-    event_node_t  *alst;      /* event list */
+    int               fd;       /* inotify file descriptor */
+    char            **file_ext; /* list of file extensions to monitor */
+    event_node_t     *alst;     /* event list */
+    shared_resources *sr;       /* shared context with entropy thread */
 
     int            n_events;
     int            n_files;
 } monitor_ctx_t;
-
-typedef struct {
-	int fd;
-	char **argv;
-	pthread_mutex_t *mutex_write;
-	pthread_mutex_t *mutex_sync;
-} shared_resources;
 
 void *fs_monitor(char *);
 
