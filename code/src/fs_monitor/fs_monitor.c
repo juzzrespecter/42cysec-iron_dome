@@ -9,30 +9,6 @@ static const int timeout = 0;
 
 static monitor_ctx_t ctx;
 
-static int extcmp(char *filename, char **extarr)
-{
-    if (!extarr[1])
-        return 0; /* no file extensions selected, monitoring everything */
-    char *ext = strrchr(filename, '.');
-
-    if (!ext)
-        return 1;
-    for (int i = 1; extarr[i]; i++)
-    {
-        if (!strncmp(ext, extarr[i], strlen(ext) + 1))
-            return 0;
-    }
-    return 1;
-}
-
-static void set_pathname(char *pathbuf, char *pathname, char *dirname)
-{
-    memset(pathbuf, 0, PATH_MAX);
-    strncpy(pathbuf, pathname, strlen(pathname) + 1);
-    strncat(pathbuf, "/", 2);
-    strncat(pathbuf, dirname, strlen(dirname) + 1);
-}
-
 static void clean_n_exit(int status)
 {
     event_node_t *n = ctx.alst;
@@ -71,6 +47,7 @@ static event_node_t *recursive_dir_access(char *pathname)
     {
         if (!strncmp(".", dir_st->d_name, 2) || !strncmp("..", dir_st->d_name, 3))
             continue;
+        printf("{ DEBUGGING } call from rec_dir_addr\n");
         set_pathname(pathbuf, pathname, dir_st->d_name);
         if (dir_st->d_type == DT_REG)
             ctx.n_files++;
@@ -132,8 +109,9 @@ static int event_in_create(ievent_t *evn)
     n = search_node(evn->wd);
     if (!n)
         return 1;
+    printf("{ DEBUGGING } call from event_in_create\n");
     set_pathname(pathbuf, n->pathname, evn->name); /* needs testing */
-    printf("[ monitor ] monitoring new directory: %s\n", pathbuf);
+    monitor_logger(NEW, pathbuf, &ctx);
     if (!add_event(ctx.fd, pathbuf, &ctx.alst))
         return 1;
     return 0;
@@ -151,7 +129,7 @@ static int event_in_delete(ievent_t *evn)
     n = search_node(evn->wd);
     if (!n)
         return 1;
-    printf("[ monitor ] stopped monitoring %s\n", n->pathname);
+    monitor_logger(RM, n->pathname, &ctx);
     rm_event(ctx.fd, n, &ctx.alst);
     return 0;
 }
@@ -164,6 +142,7 @@ static int event_in_open(ievent_t *evn)
     n = search_node(evn->wd);
     if (!n)
         return 1;
+    printf("{ DEBUGGING } call from event_in_open\n");
     set_pathname(pathbuf, n->pathname, evn->name);
     if (extcmp(pathbuf, ctx.sr->argv))
 	    return 0;
@@ -185,6 +164,7 @@ static void event_loop(void)
     ievent_t *evn;
 
     evn_len = read(ctx.fd, evn_buf, sizeof(evn_buf));
+    printf("{DEBUGGING} evn_len: %d\n", evn_len);
     if (evn_len == -1)
         return ;
     
@@ -216,29 +196,6 @@ static int fs_monitor_loop_switch(void)
     return switch_val;
 }
 
-void monitor_logger(int id)
-{
-    /* cosa */
-}
-
-void event_logger(void)
-{
-    static char *evn_warning[3] = {
-        "[ monitor ] detected moderate disk usage on system",
-        "[ monitor ] detected high disk usage on system",
-        "[ monitor ] detected very high disk usage on system"
-    };
-    int   n_events = (ctx.n_events < ctx.n_files) ? 0 : ctx.n_events - ctx.n_files;
-    float p_events = n_events / ctx.n_files;
-
-    if (p_events >= 0.3 && p_events < 0.6)
-        write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[0]);
-    if (p_events >= 0.6 && p_events < 0.9)
-        write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[1]);
-    if (p_events >= 0.9)
-        write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[2]);
-}
-
 static void fs_monitor_poll(void)
 {
     int           nevents;
@@ -260,7 +217,7 @@ static void fs_monitor_poll(void)
         }
         if (fds.revents & POLLIN)
             event_loop();
-        event_logger();
+        event_logger(&ctx);
 	    CLEAR_EVN(ctx);
         printf("spam meeeeeeeeeeeee\n");
     }
