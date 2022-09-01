@@ -28,7 +28,6 @@ typedef struct inotify_event ievent_t;
 typedef struct {
 	int fd;
 	char **argv;
-    int sync_switch;
 	pthread_mutex_t *mutex_write;
 	pthread_mutex_t *mutex_sync;
 } shared_resources;

@@ -1,6 +1,7 @@
 #include "irondome.h"
 
 extern int end;
+extern int sync_switch;
 
 /* poll constants */
 static const int nfds = 1;
@@ -10,13 +11,13 @@ static monitor_ctx_t ctx;
 
 static int extcmp(char *filename, char **extarr)
 {
-    if (!extarr)
+    if (!extarr[1])
         return 0; /* no file extensions selected, monitoring everything */
     char *ext = strrchr(filename, '.');
 
     if (!ext)
         return 1;
-    for (int i = 0; extarr[i]; i++)
+    for (int i = 1; extarr[i]; i++)
     {
         if (!strncmp(ext, extarr[i], strlen(ext) + 1))
             return 0;
@@ -87,6 +88,7 @@ static event_node_t *recursive_dir_access(char *pathname)
     return ctx.alst;
 }
 
+#ifdef DEBUG
 static void print_event(int wd)
 {
     printf("  events:\n");
@@ -102,6 +104,7 @@ static void print_event(int wd)
     if (wd & IN_MOVED_TO)      printf("\tIN_MOVED_TO\n");
     if (wd & IN_OPEN)          printf("\tIN_OPEN\n");
 }
+#endif
 
 static event_node_t* search_node(int wd)
 {
@@ -162,12 +165,14 @@ static int event_in_open(ievent_t *evn)
     if (!n)
         return 1;
     set_pathname(pathbuf, n->pathname, evn->name);
-    if (extcmp(pathbuf, ctx.sr->argv + sizeof(char *)))
+    if (extcmp(pathbuf, ctx.sr->argv))
 	    return 0;
+#ifdef DEBUG        
     printf("> caught event:\n");
     printf("  file name: %s\n", pathbuf);
     print_event(evn->wd);
     printf("\n");
+#endif
 
     ctx.n_events++;
     return 0;
@@ -201,32 +206,37 @@ static void event_loop(void)
 
 static int fs_monitor_loop_switch(void)
 {
-    int sync_switch = 0;
+    int switch_val;
 
     pthread_mutex_lock(ctx.sr->mutex_sync);
-    sync_switch = ctx.sr->sync_switch;
-    if (!sync_switch)
-        ctx.sr->sync_switch = 1;
+    switch_val = sync_switch;
+    if (switch_val)
+        sync_switch = 0;
     pthread_mutex_unlock(ctx.sr->mutex_sync);
-    return sync_switch;
+    return switch_val;
 }
 
-void logger(void)
+void monitor_logger(int id)
 {
-    static char evn_warning[3] = {
-	"[ monitor ] detected moderate disk usage on system",
-	"[ monitor ] detected high disk usage on system",
-	"[ monitor ] detected very high disk usage on system"
+    /* cosa */
+}
+
+void event_logger(void)
+{
+    static char *evn_warning[3] = {
+        "[ monitor ] detected moderate disk usage on system",
+        "[ monitor ] detected high disk usage on system",
+        "[ monitor ] detected very high disk usage on system"
     };
     int   n_events = (ctx.n_events < ctx.n_files) ? 0 : ctx.n_events - ctx.n_files;
     float p_events = n_events / ctx.n_files;
 
-    if (p_events => 0.3 && p_events < 0.6)
-	write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[0]);
-    if (p_events => 0.6 && p_events < 0.9)
-	write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[1]);
-    if (p_events => 0.9)
-	write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[2]);
+    if (p_events >= 0.3 && p_events < 0.6)
+        write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[0]);
+    if (p_events >= 0.6 && p_events < 0.9)
+        write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[1]);
+    if (p_events >= 0.9)
+        write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[2]);
 }
 
 static void fs_monitor_poll(void)
@@ -240,7 +250,6 @@ static void fs_monitor_poll(void)
     {
         if (!fs_monitor_loop_switch())
             continue;
-
         nevents = poll(&fds, nfds, timeout);
         if (nevents == -1)
         {
@@ -251,8 +260,9 @@ static void fs_monitor_poll(void)
         }
         if (fds.revents & POLLIN)
             event_loop();
-        logger();
-	CLEAR_EVN(ctx);
+        event_logger();
+	    CLEAR_EVN(ctx);
+        printf("spam meeeeeeeeeeeee\n");
     }
 }
 
@@ -268,7 +278,7 @@ void* fs_monitor(void *args)
         perror("inotify_init1");
         clean_n_exit(EXIT_FAILURE);
     }
-    if (!recursive_dir_access(ctx.sr->argv[1]))
+    if (!recursive_dir_access(ctx.sr->argv[0]))
         clean_n_exit(EXIT_FAILURE);
     fs_monitor_poll();
     clean_n_exit(EXIT_FAILURE);

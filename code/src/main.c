@@ -126,25 +126,25 @@ int main(int argc, char **argv)
 	shared_fs.fd = fd;
 	(void) shared_fs;
 
-	pthread_t thr_entropy; // ,thr_fs;
+	pthread_t thr_entropy, thr_fs;
 	end = 0;
 	sync_switch = 0;
 
-	daemon(0, 0);
+	/*daemon(0, 0);*/
 	if (pthread_create(&thr_entropy, NULL, &entropy, &shared_entropy) != 0)
 		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
-	// if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
-	// {
-	// 	end_to_true();
-	// 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
-	// }
+	if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
+	{
+		end_to_true();
+		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
+	}
 
 	signal(SIGINT, sig_handler);
 	write_to_log(fd, &mutex_write, "Starting monitoring of directory ");
 	write_to_log(fd, &mutex_write, argv[1]);
 	write_to_log(fd, &mutex_write, "\n\n");
 	pthread_join(thr_entropy, NULL);
-	//pthread_join(thr_fs, NULL);
+	pthread_join(thr_fs, NULL);
 
 	write_to_log(fd, &mutex_write, "\n\n");
 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, NULL, NULL, 0);

@@ -12,7 +12,7 @@ INC = irondome.h
 NAME = irondome
 
 CXX = gcc
-CXXFLAGS = -Wall -Werror -Wextra
+CXXFLAGS = -Wall -Werror -Wextra -fsanitize=address
 
 all: $(NAME)
 
@@ -37,6 +37,8 @@ clean:
 fclean:	clean
 	@rm -rf $(OBJ_DIR)
 	@echo ${RD} [ rm ] ${FN} "$(OBJ_DIR): removed"
+
+re: fclean all
 
 # ~  aesthetica ~
 GR="\033[32m"
