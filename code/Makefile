@@ -16,7 +16,7 @@ CXXFLAGS = -Wall -Werror -Wextra -fsanitize=address
 
 all: $(NAME)
 
-$(NAME): $(OBJ)
+$(NAME): $(OBJ) $(INC_DIR)$(INC)
 	@$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ) -lm -lpthread
 
 $(OBJ_DIR)%.o: $(SRC_DIR)%.c

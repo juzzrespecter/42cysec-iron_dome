@@ -23,7 +23,7 @@ typedef struct inotify_event ievent_t;
 # define CLEAR_EVN(ctx)   ctx.n_events = 0
 # define RM_FILE_CNT(ctx) ctx.n_files == 0 ? ctx.n_files = 0 : ctx.n_files--
 
-# define EVN_BUF_LEN (sizeof(ievent_t) + NAME_MAX + 1) * 20
+# define EVN_BUF_LEN (sizeof(ievent_t) + NAME_MAX + 1) * 200
 # define DIR_ARR_LEN 2
 # define NEW 0
 # define RM  1

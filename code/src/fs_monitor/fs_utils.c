@@ -43,19 +43,19 @@ void event_logger(monitor_ctx_t *ctx)
     static char *evn_warning[3] = {
         "[ monitor ] detected moderate disk usage on system\n",
         "[ monitor ] detected high disk usage on system\n",
-        "[ monitor ] detected very high disk usage on system\n"
+        "[ monitor ] [ WARNING ] detected very high disk usage on system\n"
     };
     int   n_events = (ctx->n_events < ctx->n_files) ? 0 : ctx->n_events - ctx->n_files;
     if (!n_events || !ctx->n_files)
         return ;
-    float p_events = n_events / ctx->n_files;
+    float p_events = (float)n_events / (float)ctx->n_files;
 
-    printf("{DEBUGGING} what we got: %d, %d, %f\n", n_events, ctx->n_files, p_events);
-    if (p_events >= 0.3 && p_events < 0.6)
+    printf("{DEBUGGING} what we got: E %d, NE %d, NF %d, P %f\n", n_events, ctx->n_events, ctx->n_files, p_events);
+    if (p_events >= 0.15 && p_events < 0.3)
         write_to_log(ctx->sr->fd, ctx->sr->mutex_write, evn_warning[0]);
-    if (p_events >= 0.6 && p_events < 0.9)
+    if (p_events >= 0.3 && p_events < 0.45)
         write_to_log(ctx->sr->fd, ctx->sr->mutex_write, evn_warning[1]);
-    if (p_events >= 0.9)
+    if (p_events >= 0.45)
         write_to_log(ctx->sr->fd, ctx->sr->mutex_write, evn_warning[2]);
 }
 
