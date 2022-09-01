@@ -134,6 +134,10 @@ void *entropy(void *shared_void)
 			}
 			first = 0;
 		}
+		pthread_mutex_lock(shared->mutex_sync);
+		extern int sync_switch;
+		sync_switch = 1;
+		pthread_mutex_unlock(shared->mutex_sync);
 	}
 	return NULL;
 }

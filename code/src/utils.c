@@ -30,12 +30,21 @@ int ends_with(char *str, char e)
 char **arrdup(int len, char **arr)
 {
 	char **ret = malloc(8 * (len + 1));
-	int counter = 0;
+	if (!ret)
+		return (NULL);
 
+	int counter = 0;
 	arr++;
 	while (*arr)
 	{
 		ret[counter++] = strdup(*arr);
+		if (!(ret[counter - 1]))
+		{
+			while (--counter)
+				free(ret[counter]);
+			free(ret);
+			return NULL;
+		}
 		arr++;
 	}
 	ret[counter] = NULL;
