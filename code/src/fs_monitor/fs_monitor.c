@@ -9,12 +9,12 @@ static const int timeout = 0;
 
 static monitor_ctx_t ctx;
 
-static void clean_n_exit(int status)
+static void* clean_n_exit(void)
 {
     event_node_t *n = ctx.alst;
     event_node_t *m;
 
-    while (!n->n)
+    while (n->n)
     {
         m = n->n;
         clean_event_node(ctx.fd, n);
@@ -22,7 +22,7 @@ static void clean_n_exit(int status)
     }
     if (ctx.fd != -1)
         close(ctx.fd);
-    exit(status);
+    return NULL;
 }
 
 static event_node_t *recursive_dir_access(char *pathname)
@@ -176,7 +176,7 @@ static void event_loop(void)
         else if (evn->mask & IN_ACCESS || evn->mask & IN_OPEN)
             event_in_open(evn);
         else if (evn->mask & IN_DELETE_SELF && evn->wd == 1)
-            clean_n_exit(EXIT_SUCCESS);
+            clean_n_exit(); /* no */
     }
 }
 
@@ -209,7 +209,7 @@ static void fs_monitor_poll(void)
             if (errno == EINTR)
                 continue;
             perror("poll");
-            exit(EXIT_FAILURE);
+            break ;
         }
         if (fds.revents & POLLIN)
             event_loop();
@@ -228,11 +228,10 @@ void* fs_monitor(void *args)
     if (ctx.fd == -1)
     {
         perror("inotify_init1");
-        clean_n_exit(EXIT_FAILURE);
+        return clean_n_exit();
     }
     if (!recursive_dir_access(ctx.sr->argv[0]))
-        clean_n_exit(EXIT_FAILURE);
+        return clean_n_exit();
     fs_monitor_poll();
-    clean_n_exit(EXIT_FAILURE);
-    return NULL;
+    return clean_n_exit();
 }

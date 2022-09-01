@@ -4,16 +4,18 @@ void entropy_file(char* path, int arr[256])
 {
 	// printf("%s", path);
 	// fflush(NULL);
+	unsigned char save[1001] = {0};
+
 	int fd = open(path, O_RDONLY);
 	if (fd < 0)
 		return ;
-	unsigned char *save = malloc(1001);
-	if (!save)
-	{
-		close(fd);
-		end_to_true();
-		return ;
-	}
+	//unsigned char *save = malloc(1001);
+	//if (!save)
+	//{
+	//	close(fd);
+	//	end_to_true();
+	//	return ;
+	//}
 	int amount = read(fd, save, 1000);
 
 	while (amount > 0) {
@@ -21,7 +23,7 @@ void entropy_file(char* path, int arr[256])
 			arr[save[i]] += 1;
 		amount = read(fd, save, 1000);
 	}
-	free(save);
+	//free(save);
 	close(fd);
 	// printf("   done\n");
 	// fflush(NULL);

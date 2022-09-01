@@ -7,6 +7,7 @@ int sync_switch;
 void sig_handler(int signum) 
 {
 	(void) signum;
+	printf("hola\n");
 	end_to_true();
 }
 
@@ -136,9 +137,9 @@ int main(int argc, char **argv)
 	if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
 	{
 		end_to_true();
+		pthread_join(thr_entropy, NULL);
 		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
 	}
-
 	signal(SIGINT, sig_handler);
 	write_to_log(fd, &mutex_write, "Starting monitoring of directory ");
 	write_to_log(fd, &mutex_write, argv[1]);
