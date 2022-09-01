@@ -93,7 +93,7 @@ void *entropy(void *shared_void)
 
 	while (!read_end())
 	{
-		printf("spam meeeeeee\n");
+		printf("aifjslsdfh\n");
 		for (int i = 0; i < 256; i++)
 			arr[i] = 0;
 		

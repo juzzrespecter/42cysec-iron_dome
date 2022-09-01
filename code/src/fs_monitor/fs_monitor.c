@@ -47,13 +47,12 @@ static event_node_t *recursive_dir_access(char *pathname)
     {
         if (!strncmp(".", dir_st->d_name, 2) || !strncmp("..", dir_st->d_name, 3))
             continue;
-        printf("{ DEBUGGING } call from rec_dir_addr\n");
         set_pathname(pathbuf, pathname, dir_st->d_name);
         if (dir_st->d_type == DT_REG)
             ctx.n_files++;
-        if (dir_st->d_type != DT_DIR || !strncmp(pathbuf, "/dev", 5) || !strncmp(pathbuf, "/proc", 5))
+        if (dir_st->d_type != DT_DIR || is_invalid_path(pathbuf))
             continue;
-        printf("[ monitor ] monitoring new directory: %s\n", pathbuf);
+        monitor_logger(NEW, pathbuf, &ctx);
         recursive_dir_access(pathbuf);
     }
     closedir(root_st);
@@ -109,7 +108,6 @@ static int event_in_create(ievent_t *evn)
     n = search_node(evn->wd);
     if (!n)
         return 1;
-    printf("{ DEBUGGING } call from event_in_create\n");
     set_pathname(pathbuf, n->pathname, evn->name); /* needs testing */
     monitor_logger(NEW, pathbuf, &ctx);
     if (!add_event(ctx.fd, pathbuf, &ctx.alst))
@@ -140,9 +138,8 @@ static int event_in_open(ievent_t *evn)
     char pathbuf[PATH_MAX] = {0};
 
     n = search_node(evn->wd);
-    if (!n)
+    if (!n || !evn->len)
         return 1;
-    printf("{ DEBUGGING } call from event_in_open\n");
     set_pathname(pathbuf, n->pathname, evn->name);
     if (extcmp(pathbuf, ctx.sr->argv))
 	    return 0;
@@ -164,7 +161,6 @@ static void event_loop(void)
     ievent_t *evn;
 
     evn_len = read(ctx.fd, evn_buf, sizeof(evn_buf));
-    printf("{DEBUGGING} evn_len: %d\n", evn_len);
     if (evn_len == -1)
         return ;
     
@@ -219,7 +215,6 @@ static void fs_monitor_poll(void)
             event_loop();
         event_logger(&ctx);
 	    CLEAR_EVN(ctx);
-        printf("spam meeeeeeeeeeeee\n");
     }
 }
 

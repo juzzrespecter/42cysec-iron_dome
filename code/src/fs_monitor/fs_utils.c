@@ -18,7 +18,6 @@ int extcmp(char *filename, char **extarr)
 
 void set_pathname(char *pathbuf, char *pathname, char *dirname)
 {
-    printf("{ DEBUGGING } SIZES: (%ld %ld | %d)\n", strlen(pathname), strlen(dirname), PATH_MAX);
     memset(pathbuf, 0, PATH_MAX);
     strncpy(pathbuf, pathname, strlen(pathname) + 1);
     strncat(pathbuf, "/", 2);
@@ -42,11 +41,13 @@ void monitor_logger(int id, char *pathname, monitor_ctx_t *ctx)
 void event_logger(monitor_ctx_t *ctx)
 {
     static char *evn_warning[3] = {
-        "[ monitor ] detected moderate disk usage on system",
-        "[ monitor ] detected high disk usage on system",
-        "[ monitor ] detected very high disk usage on system"
+        "[ monitor ] detected moderate disk usage on system\n",
+        "[ monitor ] detected high disk usage on system\n",
+        "[ monitor ] detected very high disk usage on system\n"
     };
     int   n_events = (ctx->n_events < ctx->n_files) ? 0 : ctx->n_events - ctx->n_files;
+    if (!n_events || !ctx->n_files)
+        return ;
     float p_events = n_events / ctx->n_files;
 
     printf("{DEBUGGING} what we got: %d, %d, %f\n", n_events, ctx->n_files, p_events);
@@ -56,4 +57,16 @@ void event_logger(monitor_ctx_t *ctx)
         write_to_log(ctx->sr->fd, ctx->sr->mutex_write, evn_warning[1]);
     if (p_events >= 0.9)
         write_to_log(ctx->sr->fd, ctx->sr->mutex_write, evn_warning[2]);
+}
+
+int is_invalid_path(char *path)
+{
+    static const char *paths[DIR_ARR_LEN] = {"/proc", "/dev"};
+
+    for (int i = 0; i < DIR_ARR_LEN; i++)
+    {
+        if (!strncmp(path, paths[i], strlen(paths[i]) + 1))
+            return 1;
+    }
+    return 0;
 }

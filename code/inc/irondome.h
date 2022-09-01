@@ -24,6 +24,7 @@ typedef struct inotify_event ievent_t;
 # define RM_FILE_CNT(ctx) ctx.n_files == 0 ? ctx.n_files = 0 : ctx.n_files--
 
 # define EVN_BUF_LEN (sizeof(ievent_t) + NAME_MAX + 1) * 20
+# define DIR_ARR_LEN 2
 # define NEW 0
 # define RM  1
 
@@ -62,6 +63,7 @@ int extcmp(char *filename, char **extarr);
 void set_pathname(char *pathbuf, char *pathname, char *dirname);
 void monitor_logger(int id, char *pathname, monitor_ctx_t *ctx);
 void event_logger(monitor_ctx_t *ctx);
+int is_invalid_path(char *path);
 
 void	*entropy(void *shared);
 char	*ft_strjoin(char const *s1, char const *s2);
