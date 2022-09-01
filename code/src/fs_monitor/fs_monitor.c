@@ -75,7 +75,7 @@ static event_node_t *recursive_dir_access(char *pathname)
             ctx.n_files++;
         if (dir_st->d_type != DT_DIR || !strncmp(pathbuf, "/dev", 5) || !strncmp(pathbuf, "/proc", 5))
             continue;
-        printf("[ debug ] found directory: %s\n", pathbuf);
+        printf("[ monitor ] monitoring new directory: %s\n", pathbuf);
         recursive_dir_access(pathbuf);
     }
     closedir(root_st);
@@ -130,7 +130,7 @@ static int event_in_create(ievent_t *evn)
     if (!n)
         return 1;
     set_pathname(pathbuf, n->pathname, evn->name); /* needs testing */
-    printf("started monitoring directory %s [ create ]\n", pathbuf);
+    printf("[ monitor ] monitoring new directory: %s\n", pathbuf);
     if (!add_event(ctx.fd, pathbuf, &ctx.alst))
         return 1;
     return 0;
@@ -148,7 +148,7 @@ static int event_in_delete(ievent_t *evn)
     n = search_node(evn->wd);
     if (!n)
         return 1;
-    printf("stopped monitoring directory %s [ rm ]\n", n->pathname);
+    printf("[ monitor ] stopped monitoring %s\n", n->pathname);
     rm_event(ctx.fd, n, &ctx.alst);
     return 0;
 }
@@ -208,12 +208,25 @@ static int fs_monitor_loop_switch(void)
     if (!sync_switch)
         ctx.sr->sync_switch = 1;
     pthread_mutex_unlock(ctx.sr->mutex_sync);
-    return sync_swicth;
+    return sync_switch;
 }
 
-void logger()
+void logger(void)
 {
-    /* logger logic */
+    static char evn_warning[3] = {
+	"[ monitor ] detected moderate disk usage on system",
+	"[ monitor ] detected high disk usage on system",
+	"[ monitor ] detected very high disk usage on system"
+    };
+    int   n_events = (ctx.n_events < ctx.n_files) ? 0 : ctx.n_events - ctx.n_files;
+    float p_events = n_events / ctx.n_files;
+
+    if (p_events => 0.3 && p_events < 0.6)
+	write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[0]);
+    if (p_events => 0.6 && p_events < 0.9)
+	write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[1]);
+    if (p_events => 0.9)
+	write_to_log(ctx.sr->fd, ctx.sr->mutex_write, evn_warning[2]);
 }
 
 static void fs_monitor_poll(void)
@@ -239,6 +252,7 @@ static void fs_monitor_poll(void)
         if (fds.revents & POLLIN)
             event_loop();
         logger();
+	CLEAR_EVN(ctx);
     }
 }
 
@@ -247,7 +261,7 @@ void* fs_monitor(void *args)
 {
     INIT_CTX(ctx);
 
-    ctx.sr = (shared_resources)args;
+    ctx.sr = (shared_resources *)args;
     ctx.fd = inotify_init1(IN_NONBLOCK);
     if (ctx.fd == -1)
     {
@@ -257,5 +271,6 @@ void* fs_monitor(void *args)
     if (!recursive_dir_access(ctx.sr->argv[1]))
         clean_n_exit(EXIT_FAILURE);
     fs_monitor_poll();
+    clean_n_exit(EXIT_FAILURE);
     return NULL;
 }

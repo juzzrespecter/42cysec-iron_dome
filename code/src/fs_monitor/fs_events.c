@@ -31,6 +31,7 @@ event_node_t **add_event(int fd, char *pathname, event_node_t **alst)
     if (!n)
     {
         perror("malloc");
+	end_to_true();
         inotify_rm_watch(fd, wd);
         return NULL;
     }
