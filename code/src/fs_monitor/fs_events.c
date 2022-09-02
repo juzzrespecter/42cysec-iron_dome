@@ -4,6 +4,8 @@
 static void add_back(event_node_t **alst, event_node_t *n)
 {
     event_node_t *m = *alst;
+    static int n_o = 0;
+    n_o++;
 
     if (!m)
     {
@@ -31,7 +33,7 @@ event_node_t **add_event(int fd, char *pathname, event_node_t **alst)
     if (!n)
     {
         perror("malloc");
-	end_to_true();
+	    end_to_true();
         inotify_rm_watch(fd, wd);
         return NULL;
     }
@@ -44,6 +46,8 @@ event_node_t **add_event(int fd, char *pathname, event_node_t **alst)
 
 void clean_event_node(int fd, event_node_t *n)
 {
+    static int n_o = 0;
+    n_o++;
     inotify_rm_watch(fd, n->wd);
     free(n->pathname);
     free(n);

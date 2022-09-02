@@ -53,7 +53,6 @@ void event_logger(monitor_ctx_t *ctx)
         return ;
     float p_events = (float)n_events / (float)ctx->n_files;
 
-    printf("{DEBUGGING} what we got: E %d, NE %d, NF %d, P %f\n", n_events, ctx->n_events, ctx->n_files, p_events);
     if (p_events >= 0.15 && p_events < 0.3 && !evn_lvl)
     {
         write_to_log(ctx->sr->fd, ctx->sr->mutex_write, evn_warning[0]);

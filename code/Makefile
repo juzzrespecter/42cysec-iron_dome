@@ -12,7 +12,7 @@ INC = irondome.h
 NAME = irondome
 
 CXX = gcc
-CXXFLAGS = -Wall -Werror -Wextra #-fsanitize=address
+CXXFLAGS = -Wall -Werror -Wextra -g #-fsanitize=address
 
 all: $(NAME)
 

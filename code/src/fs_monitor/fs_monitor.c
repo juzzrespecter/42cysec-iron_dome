@@ -14,7 +14,7 @@ static void* clean_n_exit(void)
     event_node_t *n = ctx.alst;
     event_node_t *m;
 
-    while (n->n)
+    while (n)
     {
         m = n->n;
         clean_event_node(ctx.fd, n);
