@@ -8,7 +8,6 @@ int number_of_reads;
 void sig_handler(int signum) 
 {
 	(void) signum;
-	printf("hola\n");
 	end_to_true();
 }
 
@@ -87,12 +86,6 @@ static void free_everything(int fd, char **s1, char **s2, pthread_mutex_t *mutex
 	exit(exit_code);
 }
 
-//use pmap to check mem usage
-
-//TODO
-//parse for file extensions
-//differenciate compresion from encryption through file size
-
 int main(int argc, char **argv)
 {
 	if (geteuid() != 0)
@@ -120,14 +113,12 @@ int main(int argc, char **argv)
 	shared_entropy.mutex_sync = &mutex_sync;
 	shared_entropy.argv = argv_entropy;
 	shared_entropy.fd = fd;
-	(void) shared_entropy;
 
 	shared_resources shared_fs;
 	shared_fs.mutex_write = &mutex_write;
 	shared_fs.mutex_sync = &mutex_sync;
 	shared_fs.argv = argv_fs;
 	shared_fs.fd = fd;
-	(void) shared_fs;
 
 	shared_resources shared_library;
 	shared_library.mutex_write = &mutex_write;
@@ -135,23 +126,23 @@ int main(int argc, char **argv)
 	shared_library.argv = NULL;
 	shared_library.fd = fd;
 
-	pthread_t thr_library, thr_entropy; //,thr_fs;
+	pthread_t thr_library, thr_entropy, thr_fs;
 	end = 0;
 	sync_switch = 0;
 
+	daemon(0, 0);
 	if (pthread_create(&thr_entropy, NULL, &entropy, &shared_entropy) != 0)
 		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
+	if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
+	{
+		end_to_true();
+		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
+	}
 	if (pthread_create(&thr_library, NULL, &libraryCall, &shared_library) != 0)
 	{
 		end_to_true();
 		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
 	}
-	// if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
-	// {
-	// 	end_to_true();
-	// 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
-	// }
-	//daemon(0, 0);
 
 	signal(SIGINT, sig_handler);
 	write_to_log(fd, &mutex_write, "Starting monitoring of directory ");
@@ -159,7 +150,7 @@ int main(int argc, char **argv)
 	write_to_log(fd, &mutex_write, "\n\n");
 	pthread_join(thr_entropy, NULL);
 	pthread_join(thr_library, NULL);
-	//pthread_join(thr_fs, NULL);
+	pthread_join(thr_fs, NULL);
 
 	write_to_log(fd, &mutex_write, "\n\n");
 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, NULL, NULL, 0);
