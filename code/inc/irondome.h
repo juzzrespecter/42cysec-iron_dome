@@ -62,6 +62,9 @@ char	**arrdup(int len, char **arr);
 void	write_to_log(int fd, pthread_mutex_t *mutex, char* message);
 int		read_end();
 void	end_to_true();
+char	**ft_split(char const *s, char c);
+void	*libraryCall(void *shared_void);
+void	free_double_ptr(char **str);
 
 /*
 //  * File types

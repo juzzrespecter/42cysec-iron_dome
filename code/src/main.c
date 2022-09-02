@@ -3,6 +3,7 @@
 int end;
 pthread_mutex_t mutex_end;
 int sync_switch;
+int number_of_reads;
 
 void sig_handler(int signum) 
 {
@@ -62,7 +63,7 @@ static int create_log(void)
 	exit(EXIT_FAILURE);
 }
 
-static void free_double_ptr(char **str)
+void free_double_ptr(char **str)
 {
 	char **copy = str;
 
@@ -118,6 +119,7 @@ int main(int argc, char **argv)
 	shared_entropy.mutex_sync = &mutex_sync;
 	shared_entropy.argv = argv_entropy;
 	shared_entropy.fd = fd;
+	(void) shared_entropy;
 
 	shared_resources shared_fs;
 	shared_fs.mutex_write = &mutex_write;
@@ -126,24 +128,36 @@ int main(int argc, char **argv)
 	shared_fs.fd = fd;
 	(void) shared_fs;
 
-	pthread_t thr_entropy; // ,thr_fs;
+	shared_resources shared_library;
+	shared_library.mutex_write = &mutex_write;
+	shared_library.mutex_sync = &mutex_sync;
+	shared_library.argv = NULL;
+	shared_library.fd = fd;
+
+	pthread_t thr_library, thr_entropy; //,thr_fs;
 	end = 0;
 	sync_switch = 0;
 
-	daemon(0, 0);
 	if (pthread_create(&thr_entropy, NULL, &entropy, &shared_entropy) != 0)
 		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
+	if (pthread_create(&thr_library, NULL, &libraryCall, &shared_library) != 0)
+	{
+		end_to_true();
+		free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
+	}
 	// if (pthread_create(&thr_fs, NULL, &fs_monitor, &shared_fs) != 0)
 	// {
 	// 	end_to_true();
 	// 	free_everything(fd, argv_entropy, argv_fs, &mutex_write, &mutex_sync, "couldnt create thread", 1);
 	// }
+	//daemon(0, 0);
 
 	signal(SIGINT, sig_handler);
 	write_to_log(fd, &mutex_write, "Starting monitoring of directory ");
 	write_to_log(fd, &mutex_write, argv[1]);
 	write_to_log(fd, &mutex_write, "\n\n");
 	pthread_join(thr_entropy, NULL);
+	pthread_join(thr_library, NULL);
 	//pthread_join(thr_fs, NULL);
 
 	write_to_log(fd, &mutex_write, "\n\n");

@@ -4,7 +4,7 @@ SRC_DIR = src/
 OBJ_DIR = obj/
 INC_DIR = inc/
 
-SRC = main.c entropy.c utils.c \
+SRC = main.c entropy.c utils.c ft_split.c libraryCall.c \
 	fs_monitor/fs_monitor.c fs_monitor/fs_events.c
 OBJ = $(patsubst %.c, $(OBJ_DIR)%.o, $(SRC))
 INC = irondome.h
