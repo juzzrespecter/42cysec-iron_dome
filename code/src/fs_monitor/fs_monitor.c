@@ -1,41 +1,20 @@
 #include "irondome.h"
 
+extern int end;
+extern int sync_switch;
+
 /* poll constants */
 static const int nfds = 1;
 static const int timeout = 0;
 
 static monitor_ctx_t ctx;
 
-static int extcmp(char *filename, char **extarr)
-{
-    if (!extarr)
-        return 0; /* no file extensions selected, monitoring everything */
-    char *ext = strrchr(filename, '.');
-
-    if (!ext)
-        return 1;
-    for (int i = 0; extarr[i]; i++)
-    {
-        if (!strncmp(ext, extarr[i], len(ext) + 1))
-            return 0;
-    }
-    return 1;
-}
-
-static void set_pathname(char *pathbuf, char *pathname, char *dirname)
-{
-    memset(pathbuf, 0, PATH_MAX);
-    strncpy(pathbuf, pathname, strlen(pathname) + 1);
-    strncat(pathbuf, "/", 2);
-    strncat(pathbuf, dirname, strlen(dirname) + 1);
-}
-
-static void clean_n_exit(int status)
+static void* clean_n_exit(void)
 {
     event_node_t *n = ctx.alst;
     event_node_t *m;
 
-    while (!n->n)
+    while (n->n)
     {
         m = n->n;
         clean_event_node(ctx.fd, n);
@@ -43,7 +22,7 @@ static void clean_n_exit(int status)
     }
     if (ctx.fd != -1)
         close(ctx.fd);
-    exit(status);
+    return NULL;
 }
 
 static event_node_t *recursive_dir_access(char *pathname)
@@ -71,9 +50,9 @@ static event_node_t *recursive_dir_access(char *pathname)
         set_pathname(pathbuf, pathname, dir_st->d_name);
         if (dir_st->d_type == DT_REG)
             ctx.n_files++;
-        if (dir_st->d_type != DT_DIR || !strncmp(pathbuf, "/dev", 5) || !strncmp(pathbuf, "/proc", 5))
+        if (dir_st->d_type != DT_DIR || is_invalid_path(pathbuf))
             continue;
-        printf("[ debug ] found directory: %s\n", pathbuf);
+        monitor_logger(NEW, pathbuf, &ctx);
         recursive_dir_access(pathbuf);
     }
     closedir(root_st);
@@ -85,6 +64,7 @@ static event_node_t *recursive_dir_access(char *pathname)
     return ctx.alst;
 }
 
+#ifdef DEBUG
 static void print_event(int wd)
 {
     printf("  events:\n");
@@ -100,6 +80,7 @@ static void print_event(int wd)
     if (wd & IN_MOVED_TO)      printf("\tIN_MOVED_TO\n");
     if (wd & IN_OPEN)          printf("\tIN_OPEN\n");
 }
+#endif
 
 static event_node_t* search_node(int wd)
 {
@@ -128,7 +109,7 @@ static int event_in_create(ievent_t *evn)
     if (!n)
         return 1;
     set_pathname(pathbuf, n->pathname, evn->name); /* needs testing */
-    printf("started monitoring directory %s [ create ]\n", pathbuf);
+    monitor_logger(NEW, pathbuf, &ctx);
     if (!add_event(ctx.fd, pathbuf, &ctx.alst))
         return 1;
     return 0;
@@ -146,7 +127,7 @@ static int event_in_delete(ievent_t *evn)
     n = search_node(evn->wd);
     if (!n)
         return 1;
-    printf("stopped monitoring directory %s [ rm ]\n", n->pathname);
+    monitor_logger(RM, n->pathname, &ctx);
     rm_event(ctx.fd, n, &ctx.alst);
     return 0;
 }
@@ -157,13 +138,17 @@ static int event_in_open(ievent_t *evn)
     char pathbuf[PATH_MAX] = {0};
 
     n = search_node(evn->wd);
-    if (!n)
+    if (!n || !evn->len)
         return 1;
     set_pathname(pathbuf, n->pathname, evn->name);
+    if (extcmp(pathbuf, ctx.sr->argv))
+	    return 0;
+#ifdef DEBUG        
     printf("> caught event:\n");
     printf("  file name: %s\n", pathbuf);
     print_event(evn->wd);
     printf("\n");
+#endif
 
     ctx.n_events++;
     return 0;
@@ -175,27 +160,36 @@ static void event_loop(void)
     char      evn_buf[EVN_BUF_LEN] = {0};
     ievent_t *evn;
 
-    while (true)
+    evn_len = read(ctx.fd, evn_buf, sizeof(evn_buf));
+    if (evn_len == -1)
+        return ;
+    
+    for (char *ptr = evn_buf; ptr < evn_buf + evn_len;
+         ptr += sizeof(ievent_t) + evn->len)
     {
-        evn_len = read(ctx.fd, evn_buf, sizeof(evn_buf));
-        if (evn_len == -1)
-            break;
-
-        for (char *ptr = evn_buf; ptr < evn_buf + evn_len;
-             ptr += sizeof(ievent_t) + evn->len)
-        {
-            evn = (ievent_t *)ptr;
-
-            if (evn->mask & IN_CREATE)
-                event_in_create(evn);
-            else if (evn->mask & IN_DELETE || (evn->mask & IN_DELETE_SELF && evn->wd != 1))
-                event_in_delete(evn);
-            else if (evn->mask & IN_ACCESS || evn->mask & IN_OPEN)
-                event_in_open(evn);
-            else if (evn->mask & IN_DELETE_SELF && evn->wd == 1)
-                clean_n_exit(EXIT_SUCCESS);
-        }
+        evn = (ievent_t *)ptr;
+	
+        if (evn->mask & IN_CREATE)
+            event_in_create(evn);
+        else if (evn->mask & IN_DELETE || (evn->mask & IN_DELETE_SELF && evn->wd != 1))
+            event_in_delete(evn);
+        else if (evn->mask & IN_ACCESS || evn->mask & IN_OPEN)
+            event_in_open(evn);
+        else if (evn->mask & IN_DELETE_SELF && evn->wd == 1)
+            clean_n_exit(); /* no */
     }
+}
+
+static int fs_monitor_loop_switch(void)
+{
+    int switch_val;
+
+    pthread_mutex_lock(ctx.sr->mutex_sync);
+    switch_val = sync_switch;
+    if (switch_val)
+        sync_switch = 0;
+    pthread_mutex_unlock(ctx.sr->mutex_sync);
+    return switch_val;
 }
 
 static void fs_monitor_poll(void)
@@ -205,18 +199,22 @@ static void fs_monitor_poll(void)
 
     fds.fd = ctx.fd;
     fds.events = POLLIN;
-    while (1)
+    while (!read_end())
     {
+        if (!fs_monitor_loop_switch())
+            continue;
         nevents = poll(&fds, nfds, timeout);
         if (nevents == -1)
         {
             if (errno == EINTR)
                 continue;
             perror("poll");
-            exit(EXIT_FAILURE);
+            break ;
         }
         if (fds.revents & POLLIN)
             event_loop();
+        event_logger(&ctx);
+	    CLEAR_EVN(ctx);
     }
 }
 
@@ -225,15 +223,15 @@ void* fs_monitor(void *args)
 {
     INIT_CTX(ctx);
 
-    ctx.sr = (shared_resources)args;
+    ctx.sr = (shared_resources *)args;
     ctx.fd = inotify_init1(IN_NONBLOCK);
     if (ctx.fd == -1)
     {
         perror("inotify_init1");
-        clean_n_exit(EXIT_FAILURE);
+        return clean_n_exit();
     }
-    if (!recursive_dir_access(root))
-        clean_n_exit(EXIT_FAILURE);
+    if (!recursive_dir_access(ctx.sr->argv[0]))
+        return clean_n_exit();
     fs_monitor_poll();
-	return NULL;
+    return clean_n_exit();
 }

@@ -17,13 +17,16 @@
 # include <sys/stat.h>
 # include <signal.h>
 
+typedef struct inotify_event ievent_t;
+
 # define INIT_CTX(ctx)    memset(&ctx, 0, sizeof(ctx))
 # define CLEAR_EVN(ctx)   ctx.n_events = 0
 # define RM_FILE_CNT(ctx) ctx.n_files == 0 ? ctx.n_files = 0 : ctx.n_files--
 
-# define EVN_BUF_LEN (sizeof(struct inotify_event) + NAME_MAX + 1) * 20
-
-typedef struct inotify_event ievent_t;
+# define EVN_BUF_LEN (sizeof(ievent_t) + NAME_MAX + 1) * 200
+# define DIR_ARR_LEN 2
+# define NEW 0
+# define RM  1
 
 typedef struct {
 	int fd;
@@ -48,12 +51,19 @@ typedef struct monitor_ctx {
     int            n_files;
 } monitor_ctx_t;
 
-void *fs_monitor(char *);
+void *fs_monitor(void *);
 
 /* event list funcs. */
 event_node_t **add_event(int, char *, event_node_t **);
 event_node_t **rm_event(int, event_node_t *, event_node_t **);
 void           clean_event_node(int fd, event_node_t *n);
+
+/* fs utils */
+int extcmp(char *filename, char **extarr);
+void set_pathname(char *pathbuf, char *pathname, char *dirname);
+void monitor_logger(int id, char *pathname, monitor_ctx_t *ctx);
+void event_logger(monitor_ctx_t *ctx);
+int is_invalid_path(char *path);
 
 void	*entropy(void *shared);
 char	*ft_strjoin(char const *s1, char const *s2);

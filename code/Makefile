@@ -4,19 +4,24 @@ SRC_DIR = src/
 OBJ_DIR = obj/
 INC_DIR = inc/
 
+<<<<<<< HEAD
 SRC = main.c entropy.c utils.c ft_split.c libraryCall.c \
 	fs_monitor/fs_monitor.c fs_monitor/fs_events.c
+=======
+SRC = main.c entropy.c utils.c \
+	fs_monitor/fs_monitor.c fs_monitor/fs_events.c fs_monitor/fs_utils.c
+>>>>>>> 0825c3ee33a1dbefb0b281b1f622ca9c3039e854
 OBJ = $(patsubst %.c, $(OBJ_DIR)%.o, $(SRC))
 INC = irondome.h
 
 NAME = irondome
 
 CXX = gcc
-CXXFLAGS = -Wall -Werror -Wextra
+CXXFLAGS = -Wall -Werror -Wextra #-fsanitize=address
 
 all: $(NAME)
 
-$(NAME): $(OBJ)
+$(NAME): $(OBJ) $(INC_DIR)$(INC)
 	@$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJ) -lm -lpthread
 
 $(OBJ_DIR)%.o: $(SRC_DIR)%.c
@@ -37,6 +42,8 @@ clean:
 fclean:	clean
 	@rm -rf $(OBJ_DIR)
 	@echo ${RD} [ rm ] ${FN} "$(OBJ_DIR): removed"
+
+re: fclean all
 
 # ~  aesthetica ~
 GR="\033[32m"

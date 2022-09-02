@@ -8,6 +8,7 @@ int number_of_reads;
 void sig_handler(int signum) 
 {
 	(void) signum;
+	printf("hola\n");
 	end_to_true();
 }
 
