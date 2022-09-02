@@ -88,7 +88,7 @@ void *libraryCall(void *shared_void)
 			{
 				if (!writtenProc(proc, atoi(procSplit[counter])))
 				{
-					write_to_log(shared->fd, shared->mutex_write, "[WARNING] Process with id: ");
+					write_to_log(shared->fd, shared->mutex_write, "[ WARNING ] Process with id: ");
 					write_to_log(shared->fd, shared->mutex_write, procSplit[counter]);
 					write_to_log(shared->fd, shared->mutex_write, " is using cryptographic or ssl libraries\n");
 					writeProc(proc, atoi(procSplit[counter]));

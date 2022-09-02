@@ -90,8 +90,8 @@ void *entropy(void *shared_void)
 	double initial_ent;
 	double curr_ent;
 	double probability;
-	int first = 1;
 	int warning_level = 0;
+	int counter = 100;
 
 	while (!read_end())
 	{
@@ -114,27 +114,30 @@ void *entropy(void *shared_void)
 					curr_ent -= probability * log(probability) / log(256);
 				}
 			}
-			if (first)
+			if (counter == 100)
+			{		
 				initial_ent = curr_ent;
+				counter = 0;
+			}
 			//50%
 			if (((curr_ent - initial_ent)/(1 - initial_ent) > 0.697) && warning_level < 3)
 			{
-				write_to_log(shared->fd, shared->mutex_write, "[WARNING] critical entropy change!!\n");
+				write_to_log(shared->fd, shared->mutex_write, "[ WARNING ] critical entropy change!!\n");
 				warning_level = 3;
 			}
 			//20% 
 			else if (((curr_ent - initial_ent)/(1 - initial_ent) > 0.348) && warning_level < 2)
 			{
-				write_to_log(shared->fd, shared->mutex_write, "[WARNING] entropy change!!\n");
+				write_to_log(shared->fd, shared->mutex_write, "[ entropy ] relevant entropy change!!\n");
 				warning_level = 2;
 			}
 			//10%
 			else if (((curr_ent - initial_ent)/(1 - initial_ent) > 0.197) && warning_level < 1)
 			{
-				write_to_log(shared->fd, shared->mutex_write, "[WARNING] low entropy change!!\n");
+				write_to_log(shared->fd, shared->mutex_write, "[ entropy ] low entropy change!!\n");
 				warning_level = 1;
 			}
-			first = 0;
+			counter++;
 		}
 		pthread_mutex_lock(shared->mutex_sync);
 		extern int sync_switch;
