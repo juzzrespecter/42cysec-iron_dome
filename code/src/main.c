@@ -88,7 +88,7 @@ static void free_everything(int fd, char **s1, char **s2, pthread_mutex_t *mutex
 
 int main(int argc, char **argv)
 {
-	if (geteuid() != 0)
+	if (getuid() != 0)
 		return (error_printer("you must be root to execute this binary\n"));
     if (argc < 2)
 		return (error_printer("usage: ./irondome DIR [FILE_EXT...]\n"));
